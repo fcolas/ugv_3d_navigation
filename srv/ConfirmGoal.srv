@@ -1,0 +1,4 @@
+geometry_msgs/Pose goal
+---
+geometry_msgs/Pose valid_goal
+bool is_valid

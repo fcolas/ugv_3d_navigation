@@ -1,0 +1,28 @@
+<package>
+  <description brief="tensorPlanner">
+
+     Path planner based on tensor voting.
+
+  </description>
+  <author>Francis Colas, Francois Pomerleau and Srivatsa Mahesh</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/tensorPlanner</url>
+  <depend package="roscpp"/>
+  <depend package="sensor_msgs"/>
+  <depend package="nav_msgs"/>
+  <depend package="tf"/>
+  <depend package="pcl_ros"/>
+  <depend package="libnabo"/>
+  <depend package="libpointmatcher"/>
+  <depend package="libpointmatcher_ros"/>
+  <rosdep name="libargtable2-dev"/>
+  <rosdep name="yaml-cpp"/>
+  <rosdep name="eigen"/>
+	<depend package="geometry_msgs"/>
+	<depend package="visualization_msgs"/>
+	<depend package="interactive_markers"/>
+	<depend package="map_msgs"/>
+</package>
+
+

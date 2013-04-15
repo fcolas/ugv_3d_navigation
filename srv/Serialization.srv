@@ -1,0 +1,14 @@
+# planning step to serialize
+int8 SPARSE_MAP=1
+int8 DENSE_MAP=2
+int8 PLANNER=3
+int8 PATH=4
+int8 PROBLEM=5
+int8 step
+# true to store, false to load
+bool store
+# directory to serialize into
+string directory
+---
+# success of the request
+bool done
