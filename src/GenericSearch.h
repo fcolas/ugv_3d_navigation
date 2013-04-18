@@ -117,6 +117,7 @@ public:
 			}
 		}
 		// non maximal suppression
+		//const SN* this_cell =  &getNodeAt(CellKey(i, j, k));
 		vector<SN*> new_list;
 		const auto cell_dims = tensor_map_params->cell_dimensions.array();
 		for (auto node_ptr: list) {
@@ -127,25 +128,25 @@ public:
 			const auto n_dir = ((((3+sqrt(3))/4)*((n.array()/cell_dims).matrix().normalized())).array()*cell_dims).matrix();
 			const SN* cell1 = &getNodeAt(p+n_dir);
 			const SN* cell2 = &getNodeAt(p-n_dir);
-			// checking for local maximum inside list
+			// checking for local maximum (inside list or not)
 			if (sal>cell1->cell.stick_sal) {
 				if (sal>cell2->cell.stick_sal) {
 					new_list.push_back(node_ptr);
-				} else {
-					if (find(list.begin(), list.end(), cell2)==list.end()) {
+				}/* else {
+					if ((cell2!=this_cell)&&(find(list.begin(), list.end(), cell2)==list.end())) {
 						new_list.push_back(node_ptr);
 					}
 				}
 			} else {
-				if (find(list.begin(), list.end(), cell1)==list.end()) {
+				if ((cell1!=this_cell)&&(find(list.begin(), list.end(), cell1)==list.end())) {
 					if (sal>cell2->cell.stick_sal) {
 						new_list.push_back(node_ptr);
 					} else {
-						if (find(list.begin(), list.end(), cell2)==list.end()) {
+						if ((cell2!=this_cell)&&(find(list.begin(), list.end(), cell2)==list.end())) {
 							new_list.push_back(node_ptr);
 						}
 					}
-				}
+				}*/
 			}
 		}
 		return new_list;
