@@ -250,7 +250,7 @@ TensorCell& TensorMap::computeDenseVoting(const CellKey& key) {
 		/*
 		 * Full tensor voting
 		 */
-		/*const Vector3f v = position - voter;
+		const Vector3f v = position - voter;
 		Vector3f v_hat;
 		if (v.isZero()) {
 			v_hat = v;
@@ -309,8 +309,8 @@ TensorCell& TensorMap::computeDenseVoting(const CellKey& key) {
 		//tensor += A;
 		// normalized voting FIXME
 		tensor += A / (eigen_values(0, index) + absolute_saliency_threshold);
-		*/
-		// old vote
+		//
+		/* // old vote
 		// actual vote
 		Vector3f e_v = position - voter;
 		const float r = sqrt(dists2(i));
@@ -324,7 +324,7 @@ TensorCell& TensorMap::computeDenseVoting(const CellKey& key) {
 		const float theta = atan2(e_v.dot(v_n), cos_theta);
 		// Decoupled weighting profile for angle and distance
 		// Angle based weighting
-		const float w_angle = pow(cos_theta,8);
+		const float w_angle = pow(cos_theta,4);
 		// Distance based weighting
 		const float z = r/sigma;
 		const float w_dist = pow(z,2)*(pow((z-3),2))/16;
@@ -332,8 +332,9 @@ TensorCell& TensorMap::computeDenseVoting(const CellKey& key) {
 		// could compute sin and cos based on cos_theta and sin_theta FIXME
 		const Vector3f v_c = v_n*cos(2*theta) - v_t*sin(2*theta);
 		const float w = w_angle*w_dist;
-		//tensor += stick_sal*w*v_c*v_c.transpose();
-		tensor += stick_sal*w*v_c*v_c.transpose()/(eigen_values(0, index) + absolute_saliency_threshold);
+		tensor += stick_sal*w*v_c*v_c.transpose();
+		//tensor += stick_sal*w*v_c*v_c.transpose()/(eigen_values(0, index) + absolute_saliency_threshold);
+		*/
 	}
 	// analyse resulting tensor
 	const EigenSolver<Matrix3f> solver(tensor);
