@@ -121,32 +121,36 @@ public:
 		vector<SN*> new_list;
 		const auto cell_dims = tensor_map_params->cell_dimensions.array();
 		for (auto node_ptr: list) {
-			const auto p = node_ptr->cell.position;
-			const auto n = node_ptr->cell.normal;
-			const auto sal = node_ptr->cell.stick_sal;
-			// getting next cells along normal vector
-			const auto n_dir = ((((3+sqrt(3))/4)*((n.array()/cell_dims).matrix().normalized())).array()*cell_dims).matrix();
-			const SN* cell1 = &getNodeAt(p+n_dir);
-			const SN* cell2 = &getNodeAt(p-n_dir);
-			// checking for local maximum (inside list or not)
-			if (sal>cell1->cell.stick_sal) {
-				if (sal>cell2->cell.stick_sal) {
-					new_list.push_back(node_ptr);
-				}/* else {
-					if ((cell2!=this_cell)&&(find(list.begin(), list.end(), cell2)==list.end())) {
-						new_list.push_back(node_ptr);
-					}
-				}
+			if ((node_ptr==start_node)||(node_ptr==goal_node)) {
+				new_list.push_back(node_ptr);
 			} else {
-				if ((cell1!=this_cell)&&(find(list.begin(), list.end(), cell1)==list.end())) {
+				const auto p = node_ptr->cell.position;
+				const auto n = node_ptr->cell.normal;
+				const auto sal = node_ptr->cell.stick_sal;
+				// getting next cells along normal vector
+				const auto n_dir = ((((3+sqrt(3))/4)*((n.array()/cell_dims).matrix().normalized())).array()*cell_dims).matrix();
+				const SN* cell1 = &getNodeAt(p+n_dir);
+				const SN* cell2 = &getNodeAt(p-n_dir);
+				// checking for local maximum (inside list or not)
+				if (sal>cell1->cell.stick_sal) {
 					if (sal>cell2->cell.stick_sal) {
 						new_list.push_back(node_ptr);
-					} else {
+					}/* else {
 						if ((cell2!=this_cell)&&(find(list.begin(), list.end(), cell2)==list.end())) {
 							new_list.push_back(node_ptr);
 						}
 					}
-				}*/
+				} else {
+					if ((cell1!=this_cell)&&(find(list.begin(), list.end(), cell1)==list.end())) {
+						if (sal>cell2->cell.stick_sal) {
+							new_list.push_back(node_ptr);
+						} else {
+							if ((cell2!=this_cell)&&(find(list.begin(), list.end(), cell2)==list.end())) {
+								new_list.push_back(node_ptr);
+							}
+						}
+					}*/
+				}
 			}
 		}
 		return new_list;
