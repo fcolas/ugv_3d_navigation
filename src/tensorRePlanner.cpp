@@ -455,7 +455,12 @@ geometry_msgs::Pose TensorRePlanner::getRobotPose() const {
 		throw err;
 	}
 	geometry_msgs::PoseStamped new_pose;
-	tf_listener.transformPose("/map", robot_pose, new_pose);
+	if (tf_listener.waitForTransform("/map", robot_pose.header.frame_id, robot_pose.header.stamp, ros::Duration(1))) {
+		tf_listener.transformPose("/map", robot_pose, new_pose);
+	} else {
+		ROS_WARN_STREAM("Cannot transform the pose of the support point.");
+		throw 1;
+	}
 	return new_pose.pose;
 }
 
