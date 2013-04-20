@@ -139,22 +139,44 @@ void PathExecution::decoratePath(vector<const TensorCell*>& path) {
 			int posture;
 			int before;
 			int after;
-			if (cur_cs==UP) { // approach upwards
-				posture = 2;
-				before = fp.approach_up_before;
-				after = fp.approach_up_after;
-			} else if (prev_cs==DOWN) { // approach downwards
-				posture = 2;
-				before = fp.approach_down_before;
-				after = fp.approach_down_after;
-			} else if (prev_cs==UP) { // convex upwards
-				posture = 4;
-				before = fp.convex_up_before;
-				after = fp.convex_up_after;
-			} else { // convex downwards
-				posture = 4;
-				before = fp.convex_down_before;
-				after = fp.convex_down_after;
+			// refactor the following tests
+			if ((!i)&&(after_edge&&(last_edge_cell == decorated_path[0].position))) {
+				posture = last_posture;
+				if (posture==2) {
+					if (cur_cs==UP) {
+						before = fp.approach_up_before;
+						after = fp.approach_up_after;
+					} else {
+						before = fp.approach_down_before;
+						after = fp.approach_down_after;
+					}
+				} else {
+					if (prev_cs==DOWN) {
+						before = fp.convex_down_before;
+						after = fp.convex_down_after;
+					} else {
+						before = fp.convex_up_before;
+						after = fp.convex_up_after;
+					}
+				}
+			} else {		
+				if (cur_cs==UP) { // approach upwards
+					posture = 2;
+					before = fp.approach_up_before;
+					after = fp.approach_up_after;
+				} else if (prev_cs==DOWN) { // approach downwards
+					posture = 2;
+					before = fp.approach_down_before;
+					after = fp.approach_down_after;
+				} else if (prev_cs==UP) { // convex upwards
+					posture = 4;
+					before = fp.convex_up_before;
+					after = fp.convex_up_after;
+				} else { // convex downwards
+					posture = 4;
+					before = fp.convex_down_before;
+					after = fp.convex_down_after;
+				}
 			}
 			if ((after+before)<0) {
 				cout << "Warning empty range for posture " << posture << endl;
