@@ -1,8 +1,8 @@
 tensor_map:
   cell_dimensions:
-    - 0.11
-    - 0.11
-    - 0.11
+    - 0.15
+    - 0.15
+    - 0.15
   origin:
     - 0
     - 0
@@ -26,7 +26,7 @@ tensor_map:
     height: 0.5
     diameter: 0.921954452991486
     inflation: 0.10
-    ground_buffer: 0.11
+    ground_buffer: 0.15
     min_saliency: 20
     max_slope: 0.785398185253143
     max_points_in_free_cell: 1
@@ -43,10 +43,15 @@ cost_functions:
   maximal_saliency: 20000
 path_execution:
   flippers_params:
+    # previous parameters
     #slope_threshold: 0.296705961227417
-    slope_threshold: 0.4
     #flat_threshold: 0.0872664600610733
-    flat_threshold: 0.3
+    # parameters for CTU's small outside stairs
+    #slope_threshold: 0.4
+    #flat_threshold: 0.3
+    # parameters for CTU's inside stairs
+    slope_threshold: 0.25
+    flat_threshold: 0.08
     approach_up_before: 3
     approach_up_after: 3
     approach_down_before: 2
