@@ -295,8 +295,23 @@ bool TensorRePlanner::executePlanSrvCB(tensorPlanner::ExecutePlan::Request& req,
 	MyTimer replanning_timer;
 	// TODO save_timer into a file
 
+	// flag to say if pose is ok for this loop
+	bool loop_ok = true;
+
+	geometry_msgs::Pose robot_pose;
+
 	while ((!end_of_path)&&ros::ok()) {
-		geometry_msgs::Pose robot_pose = getRobotPose();
+		loop_rate.sleep();
+		ros::spinOnce();
+		try {
+			robot_pose = getRobotPose();
+			loop_ok = true;
+		} catch (int) {
+			loop_ok = false;
+		}
+		if (!loop_ok) {
+			continue;
+		}
 		Vector3f rounded_pos = tensor_map.indexToPosition(
 				tensor_map.positionToIndex(poseToVector(robot_pose)));
 		fprintf(executed, "%f,%f,%f,%f,%f,%f", robot_pose.position.x,
@@ -319,7 +334,15 @@ bool TensorRePlanner::executePlanSrvCB(tensorPlanner::ExecutePlan::Request& req,
 			fprintf(executed, ",\"Retrying\"");
 			ROS_WARN_STREAM("Couldn't find path. Retrying once.");
 			planner = DStarPathPlanner(tensor_map);
-			robot_pose = getRobotPose();
+			try {
+				robot_pose = getRobotPose();
+				loop_ok = true;
+			} catch (int) {
+				loop_ok = false;
+			}
+			if (!loop_ok) {
+				continue;
+			}
 			planner.setStart(robot_pose);
 			planner.setGoal(goal);
 			replanning_timer.start();
@@ -365,8 +388,6 @@ bool TensorRePlanner::executePlanSrvCB(tensorPlanner::ExecutePlan::Request& req,
 		// FIXME do I need to spinOnce?
 		//ros::spinOnce()
 		fprintf(executed, "\n");
-		loop_rate.sleep();
-		ros::spinOnce();
 	}
 	ROS_INFO_STREAM("executePlanSrvCB: done");
 	replanning_timer.print("Replanning: ", "plan_timing.csv");
