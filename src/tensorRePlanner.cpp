@@ -573,12 +573,13 @@ int main(int argc, char **argv) {
 	cout << "Initializing tensor_replanner" << endl;
 	TensorRePlanner trp;
 	TRPParams params;
-	string paramfile;
-	ros::NodeHandle nh;
-	if (!nh.getParam("config", paramfile)) {
-		paramfile = "test.yaml";
+	string config_filename;
+	ros::NodeHandle nh("~");
+	if (!nh.getParam("config", config_filename)) {
+		config_filename = "test.yaml";
 	}
-	load_params(paramfile, params);
+	cout << "Loading config file: " << config_filename << endl;
+	load_params(config_filename, params);
 	cost_functions_params = &params.cost_functions;
 	tensor_map_params = &params.tensor_map;
 	path_execution_params = &params.path_execution;
