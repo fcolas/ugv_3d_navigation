@@ -1,0 +1,10 @@
+- SimpleSensorNoiseDataPointsFilter
+- SamplingSurfaceNormalDataPointsFilter:
+    knn: 20
+    ratio: 0.8
+    keepNormals: 1
+    keepDensities: 1
+- MaxDensityDataPointsFilter:
+    maxDensity: 10000
+- ObservationDirectionDataPointsFilter
+- OrientNormalsDataPointsFilter 
