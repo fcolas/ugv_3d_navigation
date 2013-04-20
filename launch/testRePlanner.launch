@@ -1,5 +1,6 @@
 <launch>
 	<node name="replanner" type="tensor_replanner" pkg="tensorPlanner" output="screen" >
+		<param name="config" value="$(find tensorPlanner)/launch/config.yaml"/>
 		<remap from="/cmd_vel" to="/private/nav/cmd_vel"/>
 	</node>
 	<node pkg="nifti_teleop" type="priority_wrapper.py"

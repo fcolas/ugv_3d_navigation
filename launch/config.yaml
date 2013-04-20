@@ -1,0 +1,64 @@
+tensor_map:
+  cell_dimensions:
+    - 0.11
+    - 0.11
+    - 0.11
+  origin:
+    - 0
+    - 0
+    - 0
+  distance_filter:
+    min_distance: 0.015
+    max_knn: 100
+  sparse_voting:
+    sigma: 0.6
+    max_dist: 0.9
+    max_knn: 200
+  dense_voting:
+    sigma: 0.6
+    max_dist: 0.9
+    max_knn: 5000
+    obs_dir_offset: 0.5
+    absolute_saliency_threshold: 20
+  traversability:
+    length: 0.7
+    width: 0.6
+    height: 0.5
+    diameter: 0.921954452991486
+    inflation: 0.10
+    ground_buffer: 0.11
+    min_saliency: 20
+    max_slope: 0.785398185253143
+    max_points_in_free_cell: 1
+    min_free_cell_ratio: 0.95
+    max_points_in_bounding_box: 50000000
+    min_support_points: 1
+cost_functions:
+  saliency_factor: 0.02
+  orientation_factor: 0.1
+  distance_factor: 1
+  heading_factor: 0.1
+  max_slope: 0.785398185253143
+  saliency_threshold: 10000
+  maximal_saliency: 20000
+path_execution:
+  flippers_params:
+    #slope_threshold: 0.296705961227417
+    slope_threshold: 0.4
+    #flat_threshold: 0.0872664600610733
+    flat_threshold: 0.3
+    approach_up_before: 3
+    approach_up_after: 3
+    approach_down_before: 2
+    approach_down_after: 3
+    convex_up_before: 2
+    convex_up_after: 2
+    convex_down_before: 3
+    convex_down_after: 3
+  execution_params:
+    v_max_flat: 0.1
+    w_max_flat: 0.3
+    v_max_slope: 0.05
+    w_max_slope: 0.075
+    max_distance: 0.2
+    ignore_radius: 0.25

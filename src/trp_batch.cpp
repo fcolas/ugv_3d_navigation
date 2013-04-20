@@ -604,6 +604,57 @@ int main_expand(int argc, char** argv) {
 
 }
 
+// other other main
+int main_plan(int argc, char** argv) {
+	TensorRePlannerBatch trpb;
+	TRPParams params;
+	cost_functions_params = &params.cost_functions;
+	tensor_map_params = &params.tensor_map;
+	path_execution_params = &params.path_execution;
+
+	string directory, outdir;
+	if (argc>=2) {
+		directory = argv[1];
+	} else {
+		directory = "test";
+	}
+	cout << "Problem to be loaded: " << directory << endl;
+	if (argc>=3) {
+		outdir = argv[2];
+	} else {
+		outdir = directory;
+	}
+	cout << "Saving to: " << outdir << endl;
+	if (argc>=4) {
+		cout << "Loading parameters from: " << argv[3] << endl;
+		load_params(argv[3], params);
+	} else {
+		cout << "Using default parameters." << endl;
+	}
+	if (!trpb.loadProblem(directory)) {
+		cout << "Fail to load problem" << endl;
+	}
+	
+	boost::filesystem::path dir(outdir);
+	if(!boost::filesystem::exists(dir)) {
+		boost::filesystem::create_directories(dir);
+	}
+	save_params(string(outdir)+"/config.yaml", params);
+	
+	cout << "Expansion:" << endl;
+	bool res = trpb.plan(outdir);
+	if (res) {
+		cout << "Good!" << endl;
+	} else {
+		cout << "Bad." << endl;
+	}
+	cout << "Serialization..." << endl;
+	trpb.planner.serialize(outdir);
+	cout << "Done." << endl;
+	return 0;
+
+}
+
 int main_default_params(int argc, char **argv) {
 	cout << "Creating and dumping default parameters" << endl;
 	TRPParams params;
@@ -627,5 +678,6 @@ int main(int argc, char **argv) {
 	//return main_cost_weights(argc, argv);
 	//return main_cost_weights_figure(argc, argv);
 	//return main_saliency_params(argc, argv);
-	return main_expand(argc, argv);
+	//return main_expand(argc, argv);
+	return main_plan(argc, argv);
 }

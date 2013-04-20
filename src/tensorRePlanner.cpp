@@ -573,7 +573,12 @@ int main(int argc, char **argv) {
 	cout << "Initializing tensor_replanner" << endl;
 	TensorRePlanner trp;
 	TRPParams params;
-	load_params("test.yaml", params);
+	string paramfile;
+	ros::NodeHandle nh;
+	if (!nh.getParam("config", paramfile)) {
+		paramfile = "test.yaml";
+	}
+	load_params(paramfile, params);
 	cost_functions_params = &params.cost_functions;
 	tensor_map_params = &params.tensor_map;
 	path_execution_params = &params.path_execution;
