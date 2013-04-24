@@ -47,11 +47,11 @@ path_execution:
     #slope_threshold: 0.296705961227417
     #flat_threshold: 0.0872664600610733
     # parameters for CTU's small outside stairs
-    #slope_threshold: 0.4
-    #flat_threshold: 0.3
+    slope_threshold: 0.4
+    flat_threshold: 0.3
     # parameters for CTU's inside stairs
-    slope_threshold: 0.25
-    flat_threshold: 0.08
+    #slope_threshold: 0.25
+    #flat_threshold: 0.08
     approach_up_before: 3
     approach_up_after: 3
     approach_down_before: 2
