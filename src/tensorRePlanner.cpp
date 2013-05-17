@@ -22,6 +22,9 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int32.h>
 #include <nav_msgs/Path.h>
+// action interface similar to move_base
+#include <move_base_msgs/MoveBaseAction.h>
+#include <actionlib/server/simple_action_server.h>
 
 // Various functions
 #include "tensorUtils.h"
@@ -39,6 +42,9 @@
 
 
 using namespace std;
+
+typedef actionlib::SimpleActionServer<move_base_msgs::MoveBaseAction> ActionServer;
+
 
 //! Motion planning and execution from point cloud using tensor voting
 class TensorRePlanner {
@@ -61,6 +67,7 @@ protected:
 
 	//! Current Goal
 	geometry_msgs::Pose goal;
+	geometry_msgs::PoseStamped aligned_goal;
 
 	//! Current Start
 	geometry_msgs::Pose start;
@@ -107,6 +114,15 @@ protected:
 	//! getting map
 	ros::ServiceClient getPointMapClient;
 
+	// action server
+	//! action server
+	ActionServer as_;
+	//! feedback message
+	move_base_msgs::MoveBaseFeedback feedback_;
+	//! result message (empty?)
+	move_base_msgs::MoveBaseResult result_;
+
+
 	// callbacks
 	//! Callback for getting map from mapper
 	bool callMapSrvCB(tensorPlanner::CallGlobalMap::Request& req,
@@ -125,7 +141,20 @@ protected:
 			tensorPlanner::Serialization::Response& res);
 	//! Callback to stop execution
 	void stopExecutionCB(const std_msgs::Bool& msg);
+	//! Callback for the action server
+	void executeCB(const move_base_msgs::MoveBaseActionGoalConstPtr& goal);
 
+	// Actual implementation
+	//! Get map
+	bool callMap();
+	//! Set goal
+	bool setGoal(const geometry_msgs::PoseStamped& goal_pose);
+	//! Compute plan
+	bool computePlan();
+	//! Execute plan
+	bool executePlan();
+	//! Get current robot pose in map coordinate frame
+	geometry_msgs::PoseStamped getRobotPoseStamped() const;
 	//! Get current robot pose in map coordinate frame
 	geometry_msgs::Pose getRobotPose() const;
 
@@ -147,7 +176,8 @@ TensorRePlanner::TensorRePlanner():
 	planner(tensor_map),
 	use_start(false),
 	n_("~"),
-	tf_listener(ros::Duration(20.))
+	tf_listener(ros::Duration(20.)),
+	as_(n, "trp_as", boost::bind(&TensorRePlanner::executeCB, this, _1), false)
 {
 	//ROS_INFO("Start of constructor.");
 	// parameters
@@ -159,7 +189,8 @@ TensorRePlanner::TensorRePlanner():
 	repath_pub = n.advertise<nav_msgs::Path>("/replanned_path", 1);
 	getPointMapClient = n.serviceClient<map_msgs::GetPointMap>("dynamic_point_map");
 	
-
+	// starting action server
+	as_.start();
 
 	// subscriptions and services (last so that the rest is initialized)
 	stopExecutionSub = n.subscribe("/stop_exec", 1, &TensorRePlanner::stopExecutionCB, this);
@@ -168,6 +199,7 @@ TensorRePlanner::TensorRePlanner():
 	computePlanSrv = n.advertiseService("compute_plan", &TensorRePlanner::computePlanSrvCB, this);
 	executePlanSrv = n.advertiseService("execute_plan", &TensorRePlanner::executePlanSrvCB, this);
 	serializationSrv = n.advertiseService("serialization", &TensorRePlanner::serializationSrvCB, this);
+
 	//ROS_INFO("End of constructor.");
 }
 
@@ -186,23 +218,9 @@ TensorRePlanner::~TensorRePlanner() {
 bool TensorRePlanner::callMapSrvCB(tensorPlanner::CallGlobalMap::Request& req,
 		tensorPlanner::CallGlobalMap::Response& res) {
 	ROS_INFO_STREAM("callMapSrvCB");
-	map_msgs::GetPointMap srvMsg;
-	getPointMapClient.call(srvMsg);
-	sensor_msgs::PointCloud2 tmp_cloud = srvMsg.response.map;
-	if (srvMsg.response.map.header.frame_id!="/map") {
-		if (!tf_listener.waitForTransform(tmp_cloud.header.frame_id, "/map",
-					tmp_cloud.header.stamp, ros::Duration(2.))) {
-			ROS_WARN("Cannot transform pointcloud into global frame; ignoring.");
-			return false;
-		}
-		pcl_ros::transformPointCloud("/map", tmp_cloud, tmp_cloud,
-				tf_listener);
-	}
-	input_point_cloud = PointMatcher_ros::\
-			rosMsgToPointMatcherCloud<float>(tmp_cloud);
-	tensor_map.import(input_point_cloud);
+	res.dummy = callMap();
 	ROS_INFO_STREAM("callMapSrvCB: done");
-	return true;
+	return res.dummy;
 }
 
 
@@ -210,23 +228,9 @@ bool TensorRePlanner::callMapSrvCB(tensorPlanner::CallGlobalMap::Request& req,
 bool TensorRePlanner::setGoalSrvCB(tensorPlanner::ConfirmGoalStamped::Request& req,
 		tensorPlanner::ConfirmGoalStamped::Response& res) {
 	ROS_INFO_STREAM("setGoalSrvCB");
-	// getting goal in global reference frame
-	geometry_msgs::PoseStamped goal_global;
-	if (!tf_listener.waitForTransform(req.goal.header.frame_id, "/map",
-				req.goal.header.stamp, ros::Duration(2.))) {
-		ROS_WARN_STREAM("Cannot transform goal into global frame; ignoring.");
-		res.is_valid = false;
-		return false;
-	}
-	tf_listener.transformPose("/map", req.goal, goal_global);
-	// validate and register goal to planner
-	geometry_msgs::PoseStamped new_goal;
-	new_goal.header = goal_global.header;
-	res.is_valid = planner.validateGoal(goal_global.pose, new_goal.pose);
-	// change updated goal back into original frame
-	tf_listener.transformPose(req.goal.header.frame_id, new_goal, res.valid_goal);
+	res.is_valid = setGoal(req.goal);
 	if (res.is_valid) {
-		goal = new_goal.pose;
+		res.valid_goal = aligned_goal;
 	}
 	ROS_INFO_STREAM("setGoalSrvCB: "<<(res.is_valid?"valid":"invalid"));
 	return res.is_valid;
@@ -237,46 +241,9 @@ bool TensorRePlanner::setGoalSrvCB(tensorPlanner::ConfirmGoalStamped::Request& r
 bool TensorRePlanner::computePlanSrvCB(tensorPlanner::ComputePlan::Request& req,
 		tensorPlanner::ComputePlan::Response& res) {
 	ROS_INFO_STREAM("computePlanSrvCB");
-	res.plan_found = false;
-	// setting start for planner
-	geometry_msgs::Pose start_pose;
-	if (use_start) {
-		start_pose = start;	// it was loaded
-		use_start = false;	// next time I can use /tf
-	} else {
-		start_pose = getRobotPose(); // get start from /tf
-	}
-	planner.setStart(start_pose);
-	path_execution.reInit(start_pose);
-
-	// doing path planning
-	MyTimer init_plan_timer;
-	init_plan_timer.start();
-	bool success=planner.computeInitialPath();
-	init_plan_timer.stop();
-	init_plan_timer.print("Initial planning: ", "plan_timing.csv");
-	// TODO save timer values in a file
-	if (success) {
-		ROS_INFO_STREAM("Planning successful.");
-		vector<const TensorCell*> path;
-		bool got_path = planner.fillPath(path);
-		if (!got_path) {
-			ROS_ERROR_STREAM("Couldn't get path after successful planning?!");
-			return false;
-		}
-		res.plan_found = true;
-		path_execution.decoratePath(path);
-		publishPath(path_execution.decorated_path, path_pub);
-		/*int t = 0;
-		for (auto &it: path) {
-			ROS_INFO_STREAM(t++ << ": (" << it->position(0) << ", " << it->position(1)\
-					<< ", " << it->position(2) << ") [" << it->stick_sal << "]");
-		}*/
-		return true;
-	} else {
-		ROS_WARN_STREAM("Couldn't find path.");
-		return false;
-	}
+	res.plan_found = computePlan();
+	ROS_INFO_STREAM("computePlanSrvCB: "<<(res.plan_found?"valid":"invalid"));
+	return res.plan_found;
 }
 
 
@@ -284,115 +251,9 @@ bool TensorRePlanner::computePlanSrvCB(tensorPlanner::ComputePlan::Request& req,
 bool TensorRePlanner::executePlanSrvCB(tensorPlanner::ExecutePlan::Request& req,
 		tensorPlanner::ExecutePlan::Response& res) {
 	ROS_INFO_STREAM("executePlanSrvCB");
-	bool end_of_path=false;
-	FILE* executed = fopen("executed_path.csv", "w");
-
-	ros::Rate loop_rate(5); // FIXME find correct control frequency
-	
-	// initialize current slope and climbing state
-	path_execution.reInit(getRobotPose());
-
-	MyTimer replanning_timer;
-	// TODO save_timer into a file
-
-	// flag to say if pose is ok for this loop
-	bool loop_ok = true;
-
-	geometry_msgs::Pose robot_pose;
-
-	while ((!end_of_path)&&ros::ok()) {
-		loop_rate.sleep();
-		ros::spinOnce();
-		try {
-			robot_pose = getRobotPose();
-			loop_ok = true;
-		} catch (int) {
-			loop_ok = false;
-		}
-		if (!loop_ok) {
-			continue;
-		}
-		Vector3f rounded_pos = tensor_map.indexToPosition(
-				tensor_map.positionToIndex(poseToVector(robot_pose)));
-		fprintf(executed, "%f,%f,%f,%f,%f,%f", robot_pose.position.x,
-				robot_pose.position.y, robot_pose.position.z, rounded_pos(0),
-				rounded_pos(1), rounded_pos(2));
-		Vector2f g_p(goal.position.x, goal.position.y);
-		Vector2f s_p(robot_pose.position.x, robot_pose.position.y);
-		if ((g_p-s_p).norm()<0.2) {
-			fprintf(executed, ",\"Goal reached\"\n");
-			ROS_INFO("Goal reached");
-			break;
-		}
-		planner.setStart(robot_pose);
-
-		ROS_INFO("Replanning");
-		replanning_timer.start();
-		bool success=planner.rePlan();
-		replanning_timer.stop();
-		if (!success) {
-			fprintf(executed, ",\"Retrying\"");
-			ROS_WARN_STREAM("Couldn't find path. Retrying once.");
-			planner = DStarPathPlanner(tensor_map);
-			try {
-				robot_pose = getRobotPose();
-				loop_ok = true;
-			} catch (int) {
-				loop_ok = false;
-			}
-			if (!loop_ok) {
-				continue;
-			}
-			planner.setStart(robot_pose);
-			planner.setGoal(goal);
-			replanning_timer.start();
-			success=planner.rePlan();
-			replanning_timer.stop();
-			if (!success) {
-				fprintf(executed, ",\"Failed\"\n");
-				fclose(executed);
-				ROS_INFO_STREAM("executePlanSrvCB: fail");
-				replanning_timer.print("Replanning: ", "plan_timing.csv");
-				return false;
-			}
-		}
-		//ROS_INFO_STREAM("Replanning successful:");
-		vector<const TensorCell*> path;
-		bool got_path = planner.fillPath(path);
-		if (!got_path) {
-			ROS_ERROR_STREAM("Couldn't get path after successful replanning?!");
-			fprintf(executed, ",\"fillPath failure\"\n");
-			fclose(executed);
-			ROS_INFO_STREAM("executePlanSrvCB: fail");
-			replanning_timer.print("Replanning: ", "plan_timing.csv");
-			return false;
-		}
-		if (!path.size()) {
-			ROS_INFO_STREAM("Reached the goal.");
-			fprintf(executed, ",\"Reached\"");
-		}
-		path_execution.decoratePath(path);
-		publishPath(path_execution.decorated_path, repath_pub);
-		path_execution.serialize("./tmp_path.csv");
-
-		geometry_msgs::Twist cmd_vel_msg; // default to stop
-		std_msgs::Int32 posture_msg;
-		posture_msg.data = 1; // default to drive
-		end_of_path = path_execution.executePath(robot_pose, cmd_vel_msg,
-			&(posture_msg.data));
-		ROS_INFO_STREAM("Plan ok: executing (v="<<cmd_vel_msg.linear.x<<", w="<<cmd_vel_msg.angular.z<<"), posture="<<posture_msg.data);
-		// publish commands (or default if end_of_path)
-		cmd_vel_pub.publish(cmd_vel_msg);
-		flipper_cmd_pub.publish(posture_msg);
-
-		// FIXME do I need to spinOnce?
-		//ros::spinOnce()
-		fprintf(executed, "\n");
-	}
+	res.plan_executed = executePlan();
 	ROS_INFO_STREAM("executePlanSrvCB: done");
-	replanning_timer.print("Replanning: ", "plan_timing.csv");
-	fclose(executed);
-	return true;
+	return res.plan_executed;
 }
 
 
@@ -455,8 +316,278 @@ void TensorRePlanner::stopExecutionCB(const std_msgs::Bool& msg) {
 }
 
 
+// Callback for the action server
+void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseActionGoalConstPtr& goal) {
+	ROS_INFO_STREAM("[trp_as] received goal: "<<goal->target_pose);
+
+	// initialize feedback
+	feedback_.base_position = getRobotPoseStamped();
+
+	// getting map
+	ROS_INFO_STREAM("[trp_as] requesting map...");
+	if (!callMap()) {
+		ROS_WARN_STREAM("[trp_as] cannot get map: aborting.");
+		as_.setAborted(result_, "Couldn't get map.");
+		return;
+	} else {
+		ROS_INFO_STREAM("[trp_as] got map.");
+	}
+	
+	// setting goal
+	ROS_INFO_STREAM("[trp_as] validating goal...");
+	if (!setGoal(goal->target_pose)) {
+		ROS_WARN_STREAM("[trp_as] goal invalid: aborting.");
+		as_.setAborted(result_, "Goal invalid.");
+		return;
+	} else {
+		ROS_INFO_STREAM("[trp_as] goal valid.");
+	}
+	
+	// computing plan
+	ROS_INFO_STREAM("[trp_as] computing initial path...");
+	if (!computePlan()) {
+		ROS_WARN_STREAM("[trp_as] couldn't find initial path.");
+		as_.setAborted(result_, "Couldn't find initial path.");
+		return;
+	} else {
+		ROS_INFO_STREAM("[trp_as] found initial path.");
+	}
+
+	// executing plan
+	ROS_INFO_STREAM("[trp_as] executing path...");
+	if (!executePlan()) {
+		if (as_.isPreemptRequested()) {
+			ROS_INFO_STREAM("[trp_as] preempting.");
+			as_.setPreempted();
+		} else {
+			ROS_INFO_STREAM("[trp_as] failure.");
+			as_.setAborted(result_, "Failed to execute the path.");
+		}
+	} else {
+		ROS_INFO_STREAM("[trp_as] success.");
+		as_.setSucceeded(result_);
+	}
+}
+
+
+// Get map
+bool TensorRePlanner::callMap() {
+	map_msgs::GetPointMap srvMsg;
+	getPointMapClient.call(srvMsg);
+	sensor_msgs::PointCloud2 tmp_cloud = srvMsg.response.map;
+	if (srvMsg.response.map.header.frame_id!="/map") {
+		if (!tf_listener.waitForTransform(tmp_cloud.header.frame_id, "/map",
+					tmp_cloud.header.stamp, ros::Duration(2.))) {
+			ROS_WARN("Cannot transform pointcloud into global frame; ignoring.");
+			return false;
+		}
+		pcl_ros::transformPointCloud("/map", tmp_cloud, tmp_cloud,
+				tf_listener);
+	}
+	input_point_cloud = PointMatcher_ros::\
+			rosMsgToPointMatcherCloud<float>(tmp_cloud);
+	tensor_map.import(input_point_cloud);
+	return true;
+}
+
+
+// Set goal
+bool TensorRePlanner::setGoal(const geometry_msgs::PoseStamped& goal_pose) {
+	// getting goal in global reference frame
+	geometry_msgs::PoseStamped goal_global;
+	if (!tf_listener.waitForTransform(goal_pose.header.frame_id, "/map",
+				goal_pose.header.stamp, ros::Duration(2.))) {
+		ROS_WARN_STREAM("Cannot transform goal into global frame; ignoring.");
+		return false;
+	}
+	tf_listener.transformPose("/map", goal_pose, goal_global);
+	// validate and register goal to planner
+	geometry_msgs::PoseStamped new_goal;
+	new_goal.header = goal_global.header;
+	bool res = planner.validateGoal(goal_global.pose, new_goal.pose);
+	if (res) {
+		// change updated goal back into original frame
+		tf_listener.transformPose(goal_pose.header.frame_id, new_goal, aligned_goal);
+		goal = new_goal.pose;
+	}
+	return res;
+}
+
+
+// Compute plan
+bool TensorRePlanner::computePlan() {
+	// setting start for planner
+	geometry_msgs::Pose start_pose;
+	if (use_start) {
+		start_pose = start;	// it was loaded
+		use_start = false;	// next time I can use /tf
+	} else {
+		start_pose = getRobotPose(); // get start from /tf
+	}
+	planner.setStart(start_pose);
+	path_execution.reInit(start_pose);
+
+	// doing path planning
+	MyTimer init_plan_timer;
+	init_plan_timer.start();
+	bool success=planner.computeInitialPath();
+	init_plan_timer.stop();
+	init_plan_timer.print("Initial planning: ", "plan_timing.csv");
+	if (success) {
+		ROS_INFO_STREAM("Planning successful.");
+		vector<const TensorCell*> path;
+		bool got_path = planner.fillPath(path);
+		if (!got_path) {
+			ROS_ERROR_STREAM("Couldn't get path after successful planning?!");
+			return false;
+		}
+		path_execution.decoratePath(path);
+		publishPath(path_execution.decorated_path, path_pub);
+		/*int t = 0;
+		for (auto &it: path) {
+			ROS_INFO_STREAM(t++ << ": (" << it->position(0) << ", " << it->position(1)\
+					<< ", " << it->position(2) << ") [" << it->stick_sal << "]");
+		}*/
+		return true;
+	} else {
+		ROS_WARN_STREAM("Couldn't find path.");
+		return false;
+	}
+}
+
+
+// Execute plan
+bool TensorRePlanner::executePlan() {
+	bool end_of_path=false;
+	FILE* executed = fopen("executed_path.csv", "w");
+
+	ros::Rate loop_rate(5); // FIXME find correct control frequency
+	
+	// initialize current slope and climbing state
+	path_execution.reInit(getRobotPose());
+
+	MyTimer replanning_timer;
+	// TODO save_timer into a file
+
+	// flag to say if pose is ok for this loop
+	bool loop_ok = true;
+
+	geometry_msgs::Pose robot_pose;
+
+	while ((!end_of_path)&&ros::ok()&&(!as_.isPreemptRequested())) {
+		loop_rate.sleep();
+		ros::spinOnce();
+		try {
+			robot_pose = getRobotPose();
+			loop_ok = true;
+		} catch (int) {
+			loop_ok = false;
+		}
+		if (!loop_ok) {
+			continue;
+		}
+		Vector3f rounded_pos = tensor_map.indexToPosition(
+				tensor_map.positionToIndex(poseToVector(robot_pose)));
+		fprintf(executed, "%f,%f,%f,%f,%f,%f", robot_pose.position.x,
+				robot_pose.position.y, robot_pose.position.z, rounded_pos(0),
+				rounded_pos(1), rounded_pos(2));
+		Vector2f g_p(goal.position.x, goal.position.y);
+		Vector2f s_p(robot_pose.position.x, robot_pose.position.y);
+		if ((g_p-s_p).norm()<0.2) {
+			fprintf(executed, ",\"Goal reached\"\n");
+			ROS_INFO("Goal reached");
+			end_of_path = true;
+			break;
+		}
+		planner.setStart(robot_pose);
+
+		ROS_INFO("Replanning");
+		replanning_timer.start();
+		bool success=planner.rePlan();
+		replanning_timer.stop();
+		if (!success) {
+			fprintf(executed, ",\"Retrying\"");
+			ROS_WARN_STREAM("Couldn't find path. Retrying once.");
+			planner = DStarPathPlanner(tensor_map);
+			try {
+				robot_pose = getRobotPose();
+				loop_ok = true;
+			} catch (int) {
+				loop_ok = false;
+			}
+			if (!loop_ok) {
+				continue;
+			}
+			planner.setStart(robot_pose);
+			planner.setGoal(goal);
+			replanning_timer.start();
+			success=planner.rePlan();
+			replanning_timer.stop();
+			if (!success) {
+				fprintf(executed, ",\"Failed\"\n");
+				ROS_INFO_STREAM("executePlanSrvCB: fail");
+				replanning_timer.print("Replanning: ", "plan_timing.csv");
+				break;
+			}
+		}
+		//ROS_INFO_STREAM("Replanning successful:");
+		vector<const TensorCell*> path;
+		bool got_path = planner.fillPath(path);
+		if (!got_path) {
+			ROS_ERROR_STREAM("Couldn't get path after successful replanning?!");
+			fprintf(executed, ",\"fillPath failure\"\n");
+			ROS_INFO_STREAM("executePlanSrvCB: fail");
+			replanning_timer.print("Replanning: ", "plan_timing.csv");
+			break;
+		}
+		if (!path.size()) {
+			ROS_INFO_STREAM("Reached the goal.");
+			fprintf(executed, ",\"Reached\"");
+			end_of_path = true;
+			break;
+		}
+		path_execution.decoratePath(path);
+		publishPath(path_execution.decorated_path, repath_pub);
+		path_execution.serialize("./tmp_path.csv");
+
+		geometry_msgs::Twist cmd_vel_msg; // default to stop
+		std_msgs::Int32 posture_msg;
+		posture_msg.data = 1; // default to drive
+		end_of_path = path_execution.executePath(robot_pose, cmd_vel_msg,
+			&(posture_msg.data));
+		ROS_INFO_STREAM("Plan ok: executing (v="<<cmd_vel_msg.linear.x<<", w="<<cmd_vel_msg.angular.z<<"), posture="<<posture_msg.data);
+		// publish commands (or default if end_of_path)
+		cmd_vel_pub.publish(cmd_vel_msg);
+		flipper_cmd_pub.publish(posture_msg);
+
+		// FIXME do I need to spinOnce?
+		//ros::spinOnce()
+		fprintf(executed, "\n");
+	}
+	// can be here for several reasons:
+	// - !ros::ok
+	// - preemption
+	// - success (end_of_path=true)
+	// - failure
+	if (as_.isPreemptRequested()) {
+		fprintf(executed, ",\"preempt requested\"\n");
+	}
+	if (!end_of_path) {
+		ROS_INFO_STREAM("stopping execution.");
+		// stop
+		geometry_msgs::Twist cmd_vel_msg;
+		cmd_vel_pub.publish(cmd_vel_msg);
+	}
+
+	replanning_timer.print("Replanning: ", "plan_timing.csv");
+	fclose(executed);
+
+	return end_of_path;
+}
+
+
 // Get current robot pose in map coordinate frame
-geometry_msgs::Pose TensorRePlanner::getRobotPose() const {
+geometry_msgs::PoseStamped TensorRePlanner::getRobotPoseStamped() const {
 	// First get the position of the robot in the map frame
 	geometry_msgs::PoseStamped robot_pose;
 	robot_pose.header.frame_id = "/base_link";
@@ -482,7 +613,11 @@ geometry_msgs::Pose TensorRePlanner::getRobotPose() const {
 		ROS_WARN_STREAM("Cannot transform the pose of the support point.");
 		throw 1;
 	}
-	return new_pose.pose;
+	return new_pose;
+}
+// Get current robot pose in map coordinate frame
+geometry_msgs::Pose TensorRePlanner::getRobotPose() const {
+	return getRobotPoseStamped().pose;
 }
 
 
