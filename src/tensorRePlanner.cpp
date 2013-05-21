@@ -142,7 +142,7 @@ protected:
 	//! Callback to stop execution
 	void stopExecutionCB(const std_msgs::Bool& msg);
 	//! Callback for the action server
-	void executeCB(const move_base_msgs::MoveBaseActionGoalConstPtr& goal);
+	void executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal);
 
 	// Actual implementation
 	//! Get map
@@ -317,7 +317,7 @@ void TensorRePlanner::stopExecutionCB(const std_msgs::Bool& msg) {
 
 
 // Callback for the action server
-void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseActionGoalConstPtr& goal) {
+void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal) {
 	ROS_INFO_STREAM("[trp_as] received goal: "<<goal->target_pose);
 
 	// initialize feedback
