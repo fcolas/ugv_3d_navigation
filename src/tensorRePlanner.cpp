@@ -121,6 +121,10 @@ protected:
 	move_base_msgs::MoveBaseFeedback feedback_;
 	//! result message (empty?)
 	move_base_msgs::MoveBaseResult result_;
+	//! subsriber for simple_goal
+	ros::Subscriber goal_sub;
+	//! goal publisher to forward simple_goal
+	ros::Publisher action_goal_pub;
 
 
 	// callbacks
@@ -143,6 +147,8 @@ protected:
 	void stopExecutionCB(const std_msgs::Bool& msg);
 	//! Callback for the action server
 	void executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal);
+	//! Callback for simple goal
+	void simpleGoalCB(const geometry_msgs::PoseStamped& goal);
 
 	// Actual implementation
 	//! Get map
@@ -188,6 +194,8 @@ TensorRePlanner::TensorRePlanner():
 	path_pub = n.advertise<nav_msgs::Path>("/planned_path", 1);
 	repath_pub = n.advertise<nav_msgs::Path>("/replanned_path", 1);
 	getPointMapClient = n.serviceClient<map_msgs::GetPointMap>("dynamic_point_map");
+	action_goal_pub = n.advertise<move_base_msgs::MoveBaseActionGoal>("goal", 1);
+
 	
 	// starting action server
 	as_.start();
@@ -199,6 +207,7 @@ TensorRePlanner::TensorRePlanner():
 	computePlanSrv = n.advertiseService("compute_plan", &TensorRePlanner::computePlanSrvCB, this);
 	executePlanSrv = n.advertiseService("execute_plan", &TensorRePlanner::executePlanSrvCB, this);
 	serializationSrv = n.advertiseService("serialization", &TensorRePlanner::serializationSrvCB, this);
+	goal_sub = n.subscribe("simple_goal", 1, &TensorRePlanner::simpleGoalCB, this);
 
 	//ROS_INFO("End of constructor.");
 }
@@ -370,6 +379,16 @@ void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal
 }
 
 
+// Callback for simple goal (forward to action goal)
+void TensorRePlanner::simpleGoalCB(const geometry_msgs::PoseStamped& goal) {
+	ROS_INFO_STREAM("[trp_sg] received simple goal: " << goal << " (forwarding)");
+	move_base_msgs::MoveBaseActionGoal action_goal;
+	action_goal.header.stamp = ros::Time::now();
+	action_goal.goal.target_pose = goal;
+	action_goal_pub.publish(action_goal);
+}
+
+
 // Get map
 bool TensorRePlanner::callMap() {
 	map_msgs::GetPointMap srvMsg;
@@ -478,7 +497,9 @@ bool TensorRePlanner::executePlan() {
 		loop_rate.sleep();
 		ros::spinOnce();
 		try {
-			robot_pose = getRobotPose();
+			feedback_.base_position = getRobotPoseStamped();
+			//robot_pose = getRobotPose();
+			robot_pose = feedback_.base_position.pose;
 			loop_ok = true;
 		} catch (int) {
 			loop_ok = false;
