@@ -194,7 +194,7 @@ TensorRePlanner::TensorRePlanner():
 	path_pub = n.advertise<nav_msgs::Path>("/planned_path", 1);
 	repath_pub = n.advertise<nav_msgs::Path>("/replanned_path", 1);
 	getPointMapClient = n.serviceClient<map_msgs::GetPointMap>("dynamic_point_map");
-	action_goal_pub = n.advertise<move_base_msgs::MoveBaseActionGoal>("goal", 1);
+	action_goal_pub = n.advertise<move_base_msgs::MoveBaseActionGoal>("/trp_as/goal", 1);
 
 	
 	// starting action server
@@ -486,7 +486,6 @@ bool TensorRePlanner::executePlan() {
 	path_execution.reInit(getRobotPose());
 
 	MyTimer replanning_timer;
-	// TODO save_timer into a file
 
 	// flag to say if pose is ok for this loop
 	bool loop_ok = true;
@@ -496,9 +495,9 @@ bool TensorRePlanner::executePlan() {
 	while ((!end_of_path)&&ros::ok()&&(!as_.isPreemptRequested())) {
 		loop_rate.sleep();
 		ros::spinOnce();
+		// getting position of the robot
 		try {
 			feedback_.base_position = getRobotPoseStamped();
-			//robot_pose = getRobotPose();
 			robot_pose = feedback_.base_position.pose;
 			loop_ok = true;
 		} catch (int) {
@@ -514,7 +513,8 @@ bool TensorRePlanner::executePlan() {
 				rounded_pos(1), rounded_pos(2));
 		Vector2f g_p(goal.position.x, goal.position.y);
 		Vector2f s_p(robot_pose.position.x, robot_pose.position.y);
-		if ((g_p-s_p).norm()<0.2) {
+		// checking for close proximity with the goal
+		if ((g_p-s_p).norm()<path_execution_params->execution_params.max_distance) {
 			fprintf(executed, ",\"Goal reached\"\n");
 			ROS_INFO("Goal reached");
 			end_of_path = true;
@@ -522,6 +522,7 @@ bool TensorRePlanner::executePlan() {
 		}
 		planner.setStart(robot_pose);
 
+		// updating global plan
 		ROS_INFO("Replanning");
 		replanning_timer.start();
 		bool success=planner.rePlan();
@@ -581,8 +582,6 @@ bool TensorRePlanner::executePlan() {
 		cmd_vel_pub.publish(cmd_vel_msg);
 		flipper_cmd_pub.publish(posture_msg);
 
-		// FIXME do I need to spinOnce?
-		//ros::spinOnce()
 		fprintf(executed, "\n");
 	}
 	// can be here for several reasons:
