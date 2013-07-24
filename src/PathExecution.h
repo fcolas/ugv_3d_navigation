@@ -80,6 +80,7 @@ protected:
 	//! Current climbing state
 	ClimbingState cur_climbing_state;
 
+public:
 	//! Current slope
 	bool cur_slope;
 };

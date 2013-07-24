@@ -78,6 +78,9 @@ protected:
 	//! Flag stating plan should use start and not look for robot position
 	bool use_start;
 
+	//! Flag stating cancel has been called
+	bool cancel_called;
+
 	//! public NodeHandle
 	ros::NodeHandle n;
 
@@ -159,6 +162,8 @@ protected:
 	bool computePlan();
 	//! Execute plan
 	bool executePlan();
+	//! Align to goal
+	bool finalAlignment();
 	//! Get current robot pose in map coordinate frame
 	geometry_msgs::PoseStamped getRobotPoseStamped() const;
 	//! Get current robot pose in map coordinate frame
@@ -181,6 +186,7 @@ TensorRePlanner::TensorRePlanner():
 	tensor_map(),
 	planner(tensor_map),
 	use_start(false),
+	cancel_called(false),
 	n_("~"),
 	tf_listener(ros::Duration(20.)),
 	as_(n, "trp_as", boost::bind(&TensorRePlanner::executeCB, this, _1), false)
@@ -201,7 +207,7 @@ TensorRePlanner::TensorRePlanner():
 	as_.start();
 
 	// subscriptions and services (last so that the rest is initialized)
-	stopExecutionSub = n.subscribe("/stop_exec", 1, &TensorRePlanner::stopExecutionCB, this);
+	stopExecutionSub = n.subscribe("simple_cancel", 1, &TensorRePlanner::stopExecutionCB, this);
 	callMapSrv = n.advertiseService("call_global_map", &TensorRePlanner::callMapSrvCB, this);
 	setGoalSrv = n.advertiseService("set_goal", &TensorRePlanner::setGoalSrvCB, this);
 	computePlanSrv = n.advertiseService("compute_plan", &TensorRePlanner::computePlanSrvCB, this);
@@ -320,7 +326,7 @@ bool TensorRePlanner::serializationSrvCB(tensorPlanner::Serialization::Request& 
 // Callback to stop execution
 void TensorRePlanner::stopExecutionCB(const std_msgs::Bool& msg) {
 	ROS_INFO_STREAM("stopExecutionCB: "<<msg);
-	// TODO
+	cancel_called = true;
 	return;
 }
 
@@ -328,6 +334,7 @@ void TensorRePlanner::stopExecutionCB(const std_msgs::Bool& msg) {
 // Callback for the action server
 void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal) {
 	ROS_INFO_STREAM("[trp_as] received goal: "<<goal->target_pose);
+	cancel_called = false;
 
 	// initialize feedback
 	feedback_.base_position = getRobotPoseStamped();
@@ -368,9 +375,30 @@ void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal
 		if (as_.isPreemptRequested()) {
 			ROS_INFO_STREAM("[trp_as] preempting.");
 			as_.setPreempted();
+		} else if (cancel_called) {
+			ROS_INFO_STREAM("[trp_as] cancelling.");
+			as_.setAborted(result_, "Cancel called.");
+			cancel_called = false;
 		} else {
 			ROS_INFO_STREAM("[trp_as] failure.");
 			as_.setAborted(result_, "Failed to execute the path.");
+		}
+	} else if (!path_execution.cur_slope) {
+		if (!finalAlignment()) {
+			if (as_.isPreemptRequested()) {
+				ROS_INFO_STREAM("[trp_as] preempting.");
+				as_.setPreempted();
+			} else if (cancel_called) {
+				ROS_INFO_STREAM("[trp_as] cancelling.");
+				as_.setAborted(result_, "Cancel called.");
+				cancel_called = false;
+			} else {
+				ROS_INFO_STREAM("[trp_as] failure.");
+				as_.setAborted(result_, "Failed to align to the goal.");
+			}
+		} else {
+			ROS_INFO_STREAM("[trp_as] success.");
+			as_.setSucceeded(result_);
 		}
 	} else {
 		ROS_INFO_STREAM("[trp_as] success.");
@@ -492,7 +520,7 @@ bool TensorRePlanner::executePlan() {
 
 	geometry_msgs::Pose robot_pose;
 
-	while ((!end_of_path)&&ros::ok()&&(!as_.isPreemptRequested())) {
+	while ((!end_of_path)&&ros::ok()&&(!as_.isPreemptRequested())&&(!cancel_called)) {
 		loop_rate.sleep();
 		ros::spinOnce();
 		// getting position of the robot
@@ -586,7 +614,7 @@ bool TensorRePlanner::executePlan() {
 	}
 	// can be here for several reasons:
 	// - !ros::ok
-	// - preemption
+	// - preemption/cancel_called
 	// - success (end_of_path=true)
 	// - failure
 	if (as_.isPreemptRequested()) {
@@ -605,6 +633,116 @@ bool TensorRePlanner::executePlan() {
 	return end_of_path;
 }
 
+
+// Align to goal
+bool TensorRePlanner::finalAlignment() {
+	bool aligned=false;
+
+	ros::Rate loop_rate(5); // FIXME find correct control frequency
+	
+	geometry_msgs::Pose robot_pose;
+
+	enum {TurnToPosition, MoveToPosition, TurnToOrientation} state = TurnToPosition;
+
+	const float v_max = path_execution_params->execution_params.v_max_flat;
+	const float w_max = path_execution_params->execution_params.w_max_flat;
+
+	// TODO: put that as parameters
+	const float pre_orient_limit = 2.5*M_PI/180.; //FIXME
+	const float position_limit = 0.05; //FIXME
+	const float last_orient_limit = 1.*M_PI/180.; //FIXME
+	const float P_rot = 1. ; //FIXME
+	const float P_trans = 1.; // FIXME
+
+	while ((!aligned)&&ros::ok()&&(!as_.isPreemptRequested())&&(!cancel_called)) {
+		loop_rate.sleep();
+		ros::spinOnce();
+		// getting position of the goal with respect to robot
+		geometry_msgs::PoseStamped goal = aligned_goal;
+		string error_string;
+		int err = tf_listener.getLatestCommonTime("/base_link", "/map",
+				goal.header.stamp, &error_string);
+		if (err!=tf::NO_ERROR) {
+			ROS_WARN_STREAM("Cannot find position of goal with respect to robot.");
+			continue;
+		}
+		geometry_msgs::PoseStamped new_pose;
+		if (tf_listener.waitForTransform("/base_link", goal.header.frame_id,
+					goal.header.stamp, ros::Duration(1))) {
+			tf_listener.transformPose("/base_link", goal, new_pose);
+		} else {
+			ROS_WARN_STREAM("Cannot transform the goal pose with respect to robot.");
+			continue;
+		}
+		const float x = new_pose.pose.position.x;
+		const float y = new_pose.pose.position.y;
+		const float d = sqrt(x*x + y*y);
+		const float q0 = new_pose.pose.orientation.w;
+		const float q1 = new_pose.pose.orientation.x;
+		const float q2 = new_pose.pose.orientation.y;
+		const float q3 = new_pose.pose.orientation.z;
+		const float yaw = atan2(2*q1*q2+2*q0*q3, q1*q1+q0*q0-q3*q3-q2*q2);
+		float angle = atan2(y, x);
+
+		geometry_msgs::Twist cmd_vel_msg;
+		ROS_INFO_STREAM("[trp_align] (x, y, yaw, d, angle)=("<<x<<", "<<y<<", "<<yaw<<", "<<d<<", "<<angle<<")");
+		switch (state) {
+		case TurnToPosition:
+			if ((x<0)&&(cos(yaw-angle)<0)) {
+				// don't turn back to turn again
+				angle = atan2(y, -x);
+			}
+			if (fabs(angle)<pre_orient_limit) { // looking at the goal
+				state = MoveToPosition;
+				ROS_INFO_STREAM("[trp_align] TurnToPosition -> MoveToPosition");
+			} else { // turning to head to goal
+				// P controller
+				cmd_vel_msg.angular.z = std::min(w_max, std::max(-w_max, P_rot*angle)); 
+				cmd_vel_pub.publish(cmd_vel_msg);
+				ROS_INFO_STREAM("[trp_align] TurnToPosition: w="<<cmd_vel_msg.angular.z<<" (angle="<<angle<<")");
+			}
+			break;
+		case MoveToPosition:
+			if (d<position_limit) { // close enough
+				state = TurnToOrientation;
+				ROS_INFO_STREAM("[trp_align] MoveToPosition -> TurnToOrientation");
+			} else { // moving closer
+				// P controller
+				if (x>0) {
+					cmd_vel_msg.linear.x = std::min(v_max, P_trans*d);
+				} else {
+					cmd_vel_msg.linear.x = -std::min(v_max, P_trans*d);
+				}
+				cmd_vel_pub.publish(cmd_vel_msg);
+				ROS_INFO_STREAM("[trp_align] MoveToPosition: v="<<cmd_vel_msg.linear.x<<" (d="<<d<<", x="<<x<<")");
+			}
+			break;
+		case TurnToOrientation:
+			if (cos(yaw)>cos(last_orient_limit)) { // good enough
+				aligned = true;
+				ROS_INFO_STREAM("[trp_align] TurnToOrientation -> Done!");
+			} else { // turning to align to orientation
+				// P controller
+				cmd_vel_msg.angular.z = std::min(w_max, std::max(-w_max, P_rot*yaw));
+				cmd_vel_pub.publish(cmd_vel_msg);
+				ROS_INFO_STREAM("[trp_align] TurnToOrientation: w="<<cmd_vel_msg.angular.z<<" (yaw="<<yaw<<")");
+			}
+			break;
+		}
+	}
+	// can be here for several reasons:
+	// - !ros::ok
+	// - preemption/cancel_called
+	// - success (end_of_path=true)
+	// - failure
+	if (!aligned) {
+		ROS_INFO_STREAM("stopping alignment.");
+		// stop
+		geometry_msgs::Twist cmd_vel_msg;
+		cmd_vel_pub.publish(cmd_vel_msg);
+	}
+	return aligned;
+}
 
 // Get current robot pose in map coordinate frame
 geometry_msgs::PoseStamped TensorRePlanner::getRobotPoseStamped() const {
