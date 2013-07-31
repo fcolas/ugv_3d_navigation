@@ -1,40 +1,40 @@
 tensor_map:
   cell_dimensions:
-    - 0.15
-    - 0.15
-    - 0.15
+    - 0.09
+    - 0.09
+    - 0.09
   origin:
     - 0
     - 0
     - 0
   distance_filter:
-    min_distance: 0.015
+    min_distance: 0.01
     max_knn: 100
   sparse_voting:
-    sigma: 0.6
+    sigma: 0.3
     max_dist: 0.9
     max_knn: 200
   dense_voting:
-    sigma: 0.6
+    sigma: 0.3
     max_dist: 0.9
     max_knn: 5000
-    obs_dir_offset: 0.5
+    obs_dir_offset: 0.14
     absolute_saliency_threshold: 20
   traversability:
     length: 0.7
     width: 0.6
     height: 0.5
     diameter: 0.921954452991486
-    inflation: 0.10
-    ground_buffer: 0.15
-    min_saliency: 20
+    inflation: 0.05
+    ground_buffer: 0.09
+    min_saliency: 10
     max_slope: 0.785398185253143
     max_points_in_free_cell: 1
     min_free_cell_ratio: 0.95
-    max_points_in_bounding_box: 50000000
-    min_support_points: 1
+    max_points_in_bounding_box: 10000
+    min_support_points: 10
 cost_functions:
-  saliency_factor: 0.02
+  saliency_factor: 0.0000
   orientation_factor: 0.1
   distance_factor: 1
   heading_factor: 0.1
