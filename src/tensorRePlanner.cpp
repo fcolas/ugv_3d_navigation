@@ -616,6 +616,7 @@ bool TensorRePlanner::executePlan() {
 		path_execution.serialize("./tmp_path.csv");
 
 		geometry_msgs::Twist cmd_vel_msg; // default to stop
+		cmd_vel_msg.linear.x = cmd_vel_msg.angular.z = 0;
 		std_msgs::Int32 posture_msg;
 		posture_msg.data = 1; // default to drive
 		end_of_path = path_execution.executePath(robot_pose, cmd_vel_msg,
@@ -639,6 +640,7 @@ bool TensorRePlanner::executePlan() {
 		ROS_INFO_STREAM("stopping execution.");
 		// stop
 		geometry_msgs::Twist cmd_vel_msg;
+		cmd_vel_msg.linear.x = cmd_vel_msg.angular.z = 0;
 		cmd_vel_pub.publish(cmd_vel_msg);
 	}
 
@@ -664,7 +666,7 @@ bool TensorRePlanner::finalAlignment() {
 
 	// TODO: put that as parameters
 	const float pre_orient_limit = 2.5*M_PI/180.; //FIXME
-	const float position_limit = 0.05; //FIXME
+	const float position_limit = 0.10; //FIXME
 	const float last_orient_limit = 1.*M_PI/180.; //FIXME
 	const float P_rot = 1. ; //FIXME
 	const float P_trans = 1.; // FIXME
@@ -673,18 +675,20 @@ bool TensorRePlanner::finalAlignment() {
 		loop_rate.sleep();
 		ros::spinOnce();
 		// getting position of the goal with respect to robot
-		geometry_msgs::PoseStamped goal = aligned_goal;
+		geometry_msgs::PoseStamped ngoal;
+		ngoal.header.frame_id = "/map";
+		ngoal.pose = goal;
 		string error_string;
 		int err = tf_listener.getLatestCommonTime("/base_link", "/map",
-				goal.header.stamp, &error_string);
+				ngoal.header.stamp, &error_string);
 		if (err!=tf::NO_ERROR) {
 			ROS_WARN_STREAM("Cannot find position of goal with respect to robot.");
 			continue;
 		}
 		geometry_msgs::PoseStamped new_pose;
-		if (tf_listener.waitForTransform("/base_link", goal.header.frame_id,
-					goal.header.stamp, ros::Duration(1))) {
-			tf_listener.transformPose("/base_link", goal, new_pose);
+		if (tf_listener.waitForTransform("/base_link", ngoal.header.frame_id,
+					ngoal.header.stamp, ros::Duration(1))) {
+			tf_listener.transformPose("/base_link", ngoal, new_pose);
 		} else {
 			ROS_WARN_STREAM("Cannot transform the goal pose with respect to robot.");
 			continue;
@@ -697,7 +701,12 @@ bool TensorRePlanner::finalAlignment() {
 		const float q2 = new_pose.pose.orientation.y;
 		const float q3 = new_pose.pose.orientation.z;
 		const float yaw = atan2(2*q1*q2+2*q0*q3, q1*q1+q0*q0-q3*q3-q2*q2);
-		float angle = atan2(y, x);
+		float angle;
+		if (d>0.01) {
+			angle = atan2(y, x);
+		} else {
+			angle = 0;
+		}
 
 		geometry_msgs::Twist cmd_vel_msg;
 		ROS_INFO_STREAM("[trp_align] (x, y, yaw, d, angle)=("<<x<<", "<<y<<", "<<yaw<<", "<<d<<", "<<angle<<")");
@@ -707,7 +716,10 @@ bool TensorRePlanner::finalAlignment() {
 				// don't turn back to turn again
 				angle = atan2(y, -x);
 			}
-			if (fabs(angle)<pre_orient_limit) { // looking at the goal
+			if (d<position_limit) { // close enough
+				state = TurnToOrientation;
+				ROS_INFO_STREAM("[trp_align] TurnToPosition -> TurnToOrientation");
+			} else if (fabs(angle)<pre_orient_limit) { // looking at the goal
 				state = MoveToPosition;
 				ROS_INFO_STREAM("[trp_align] TurnToPosition -> MoveToPosition");
 			} else { // turning to head to goal
@@ -754,6 +766,7 @@ bool TensorRePlanner::finalAlignment() {
 		ROS_INFO_STREAM("stopping alignment.");
 		// stop
 		geometry_msgs::Twist cmd_vel_msg;
+		cmd_vel_msg.linear.x = cmd_vel_msg.angular.z = 0;
 		cmd_vel_pub.publish(cmd_vel_msg);
 	}
 	return aligned;
