@@ -343,8 +343,8 @@ TensorCell& TensorMap::computeDenseVoting(const CellKey& key) {
 	sortTensor(eigenVals, eigenVectors);
 	float stick_sal = eigenVals(0)-eigenVals(1);
 	float s = eigenVals(0)-eigenVals(1);
-	float p = eigenVals(1)-eigenVals(2);
-	float b = eigenVals(2);
+	//float p = eigenVals(1)-eigenVals(2);
+	//float b = eigenVals(2);
 	float Z = eigenVals(0);
 
 	//cout << "Saliency distribution: (" << s/Z << ", " << p/Z << ", " << b/Z << "); abs_sal=" << Z << "; p_plane=" << s/(Z+absolute_saliency_threshold) << " (" << absolute_saliency_threshold << ")" << endl;

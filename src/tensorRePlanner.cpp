@@ -22,6 +22,7 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/Int32.h>
 #include <nav_msgs/Path.h>
+#include <visualization_msgs/Marker.h>
 // action interface similar to move_base
 #include <move_base_msgs/MoveBaseAction.h>
 #include <actionlib/server/simple_action_server.h>
@@ -108,6 +109,9 @@ protected:
 	ros::Publisher path_pub;
 	//! path for successive replanning
 	ros::Publisher repath_pub;
+	//! Markers for various informations
+	ros::Publisher marker_pub;
+	ros::Publisher marker_array_pub;
 
 	// subscriptions
 	//! tf
@@ -201,6 +205,8 @@ TensorRePlanner::TensorRePlanner():
 	repath_pub = n.advertise<nav_msgs::Path>("/replanned_path", 1);
 	getPointMapClient = n.serviceClient<map_msgs::GetPointMap>("dynamic_point_map");
 	action_goal_pub = n.advertise<move_base_msgs::MoveBaseActionGoal>("/trp_as/goal", 1);
+	marker_pub = n.advertise<visualization_msgs::Marker>("/trp/marker", 1);
+	marker_array_pub = n.advertise<visualization_msgs::MarkerArray>("/trp/marker_array", 1);
 
 	
 	// starting action server
@@ -479,6 +485,9 @@ bool TensorRePlanner::computePlan() {
 	init_plan_timer.start();
 	bool success=planner.computeInitialPath();
 	init_plan_timer.stop();
+	visualization_msgs::MarkerArray array;
+	planner.appendMarker(array);
+	marker_array_pub.publish(array);
 	init_plan_timer.print("Initial planning: ", "plan_timing.csv");
 	if (success) {
 		ROS_INFO_STREAM("Planning successful.");
@@ -554,6 +563,9 @@ bool TensorRePlanner::executePlan() {
 		ROS_INFO("Replanning");
 		replanning_timer.start();
 		bool success=planner.rePlan();
+		visualization_msgs::MarkerArray array;
+		planner.appendMarker(array);
+		marker_array_pub.publish(array);
 		replanning_timer.stop();
 		if (!success) {
 			fprintf(executed, ",\"Retrying\"");
@@ -573,6 +585,9 @@ bool TensorRePlanner::executePlan() {
 			replanning_timer.start();
 			success=planner.rePlan();
 			replanning_timer.stop();
+			visualization_msgs::MarkerArray array;
+			planner.appendMarker(array);
+			marker_array_pub.publish(array);
 			if (!success) {
 				fprintf(executed, ",\"Failed\"\n");
 				ROS_INFO_STREAM("executePlanSrvCB: fail");
@@ -782,11 +797,33 @@ geometry_msgs::Pose TensorRePlanner::getRobotPose() const {
 // Publish a path in ROS (for quick visualization)
 void TensorRePlanner::publishPath(const vector<PathElement>& path,
 		ros::Publisher& pub) {
+	// Marker
+	visualization_msgs::Marker marker;
+	marker.header.frame_id = "/map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "trp";
+	marker.id = 1;
+	marker.type = visualization_msgs::Marker::LINE_STRIP;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.scale.x = 0.03;
+	marker.color.a = 1.0;
+	marker.color.r = 0.0;
+	marker.color.g = 1.0;
+	marker.color.b = 0.0;
+	// Path
 	nav_msgs::Path path_msg;
 	path_msg.header.frame_id = "/map";
 	path_msg.header.stamp = ros::Time::now();
 	Vector3f old_direction(1, 0, 0);
 	for (auto &it: path) {
+		// Marker
+		auto pos = it.position;
+		geometry_msgs::Point point;
+		point.x = pos[0];
+		point.y = pos[1];
+		point.z = pos[2];
+		marker.points.push_back(point);
+		// Path
 		geometry_msgs::PoseStamped pose_msg;
 		pose_msg.header = path_msg.header;
 		if (it.direction.norm()<0.001) {
@@ -799,6 +836,7 @@ void TensorRePlanner::publishPath(const vector<PathElement>& path,
 		}
 		path_msg.poses.push_back(pose_msg);
 	}
+	marker_pub.publish(marker);
 	pub.publish(path_msg);
 }
 

@@ -16,6 +16,29 @@ Vector3f poseToVector(const geometry_msgs::Pose& pose) {
 }
 
 
+// Convert ROS pose to Eigen::Quaternionf
+Quaternionf poseToQuaternion(const geometry_msgs::Pose& pose) {
+	const float w = static_cast<float>(pose.orientation.w);
+	const float x = static_cast<float>(pose.orientation.x);
+	const float y = static_cast<float>(pose.orientation.y);
+	const float z = static_cast<float>(pose.orientation.z);
+	return Quaternionf(w, x, y, z);
+}
+
+// Linear distance between poses
+float linearDistance(const geometry_msgs::Pose& p1,
+		const geometry_msgs::Pose& p2) {
+	return (poseToVector(p1)-poseToVector(p2)).norm();
+}
+
+
+// Angular distance between poses
+float angularDistance(const geometry_msgs::Pose& p1,
+		const geometry_msgs::Pose& p2) {
+	return poseToQuaternion(p1).angularDistance(poseToQuaternion(p2));
+}
+
+
 // Convert Vector3f to ROS Positionf
 geometry_msgs::Point vectorToPosition(const Vector3f& vector) {
 	geometry_msgs::Point p;

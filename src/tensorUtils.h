@@ -20,6 +20,17 @@ typedef PointMatcher<float>::DataPoints PointCloud;
 //! Convert ROS pose to Vector3f
 Vector3f poseToVector(const geometry_msgs::Pose& pose);
 
+//! Convert ROS pose to Quaternionf
+Quaternionf poseToQuaternion(const geometry_msgs::Pose& pose);
+
+//! Linear distance between poses
+float linearDistance(const geometry_msgs::Pose& p1,
+		const geometry_msgs::Pose& p2);
+
+//! Angular distance between poses
+float angularDistance(const geometry_msgs::Pose& p1,
+		const geometry_msgs::Pose& p2);
+
 //! Convert Vector3f to ROS Point
 geometry_msgs::Point vectorToPosition(const Vector3f& vector);
 

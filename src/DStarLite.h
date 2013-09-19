@@ -102,6 +102,9 @@ public:
 	//! Deserialize all planner content (including map)
 	void deSerialize(const string& directory);
 
+	//! Full visualization
+	void appendMarker(visualization_msgs::MarkerArray& array);
+
 protected:
 	//! Check open_list consistency
 	bool check_open_list();

@@ -4,6 +4,7 @@
 #include <limits>
 // file I/O using formatted data
 #include <cstdio>
+#include <std_msgs/ColorRGBA.h>
 
 #define infinity (numeric_limits<float>::infinity())
 
@@ -588,4 +589,64 @@ void DStarPathPlanner::deSerialize(const string& directory) {
 	fclose(planner_file);
 }
 
+
+// Full visualization
+void DStarPathPlanner::appendMarker(visualization_msgs::MarkerArray& array) {
+	visualization_msgs::Marker marker;
+	visualization_msgs::Marker normals;
+	marker.header.frame_id = "/map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "trp";
+	marker.id = 0;
+	marker.type = visualization_msgs::Marker::CUBE_LIST;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.scale.x = 0.4*tensor_map_params->cell_dimensions[0];
+	marker.scale.y = 0.4*tensor_map_params->cell_dimensions[1];
+	marker.scale.z = 0.4*tensor_map_params->cell_dimensions[2];
+	marker.color.a = 0.3;
+	marker.color.r = 0.0;
+	marker.color.g = 0.7;
+	marker.color.b = 0.7;	
+	normals.header.frame_id = "/map";
+	normals.header.stamp = ros::Time();
+	normals.ns = "trp";
+	normals.id = 2;
+	normals.type = visualization_msgs::Marker::LINE_LIST;
+	normals.action = visualization_msgs::Marker::ADD;
+	normals.scale.x = 0.01;
+	normals.color.a = 1.0;
+	normals.color.r = 1.0;
+	normals.color.g = 1.0;
+	normals.color.b = 1.0;
+	for (const auto &it: search_node_map) {
+		auto pos = dense_map->indexToPosition(it.first);
+		geometry_msgs::Point point;
+		point.x = pos[0];
+		point.y = pos[1];
+		point.z = pos[2];
+		marker.points.push_back(point);
+		std_msgs::ColorRGBA color;
+		if (it.second.is_open) {
+			color.a = 1.0;
+			color.r = 0.9;
+			color.g = 0.9;
+			color.b = 0.0;
+		} else {
+			color.a = 0.1;
+			color.r = 0.0;
+			color.g = 0.6;
+			color.b = 0.6;
+		}
+		marker.colors.push_back(color);
+		// normals
+		normals.points.push_back(point);
+		auto normal = it.second.cell.normal;
+		point.x += 0.7*tensor_map_params->cell_dimensions[0]*normal[0];
+		point.y += 0.7*tensor_map_params->cell_dimensions[1]*normal[1];
+		point.z += 0.7*tensor_map_params->cell_dimensions[2]*normal[2];
+		normals.points.push_back(point);
+	}
+	array.markers.push_back(marker);
+	array.markers.push_back(normals);
+}
 

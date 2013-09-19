@@ -1,7 +1,7 @@
 3D\ map..AxisColorAutocompute\ Value\ Bounds=1
 3D\ map..AxisColorAxis=2
-3D\ map..AxisColorMax\ Value=4.57894
-3D\ map..AxisColorMin\ Value=-0.234893
+3D\ map..AxisColorMax\ Value=7.15303
+3D\ map..AxisColorMin\ Value=1.00512
 3D\ map..AxisColorUse\ Fixed\ Frame=1
 3D\ map..FlatColorColorB=1
 3D\ map..FlatColorColorG=1
@@ -25,12 +25,12 @@
 3D\ map.Position\ Transformer=XYZ
 3D\ map.Queue\ Size=10
 3D\ map.Selectable=1
-3D\ map.Style=0
+3D\ map.Style=3
 3D\ map.Topic=/point_map
 Background\ ColorB=0
 Background\ ColorG=0
 Background\ ColorR=0
-Camera\ Config=1.5698 2.82725 4.42701 -0.192159 -0.564152 -1.03592
+Camera\ Config=0.734797 4.88918 6.32062 38.7388 -32.2556 2.41958
 Camera\ Type=rviz::OrbitViewController
 Fixed\ Frame=/map
 Goal\ Marker.Enabled=1
@@ -92,6 +92,10 @@ Map.Alpha=0.7
 Map.Draw\ Behind=0
 Map.Enabled=1
 Map.Topic=/map
+Marker.Enabled=1
+Marker.Marker\ Topic=/trp/marker
+Marker.Queue\ Size=100
+Marker.trp=1
 PTZ.Enabled=0
 PTZ.Image\ Topic=/viz/ptz/image
 PTZ.Queue\ Size=2
@@ -103,8 +107,8 @@ Pano.Transport\ Hint=compressed
 Plan.Alpha=1
 Plan.ColorB=0
 Plan.ColorG=1
-Plan.ColorR=0.1
-Plan.Enabled=1
+Plan.ColorR=0.333333
+Plan.Enabled=0
 Plan.Topic=/planned_path
 Point\ Cloud..AxisColorAutocompute\ Value\ Bounds=1
 Point\ Cloud..AxisColorAxis=2
@@ -136,7 +140,7 @@ Point\ Cloud.Selectable=1
 Point\ Cloud.Style=0
 Point\ Cloud.Topic=/dynamic_point_cloud
 Property\ Grid\ Splitter=679,85
-Property\ Grid\ State=expanded=.Global Options;splitterratio=0.5
+Property\ Grid\ State=expanded=.Global Options,Marker.Enabled,Marker.Status,Marker.Namespaces;splitterratio=0.5
 QMainWindow=000000ff00000000fd00000003000000000000013a0000034efc0200000005fb000000100044006900730070006c006100790073010000001d0000034e000000ee00fffffffb0000000a0049006d006100670065020000020f000000c1000004070000021ffb0000000c0049006d0061006700650032020000016d000000e0000002b4000002c4fb0000000800500061006e006f02000001610000009d000002b500000183fb0000000600500054005a02000002d10000003d000001e3000001e000000001000001340000034efc0200000003fb0000001e0054006f006f006c002000500072006f0070006500720074006900650073000000001d0000034e0000006700fffffffb0000000a00560069006500770073000000001d0000030a000000bb00fffffffb0000001200530065006c0065006300740069006f006e000000001d000002590000006700ffffff00000003000006400000003efc0100000001fb0000000800540069006d0065000000000000000640000002bf00ffffff000005000000034e00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
 Robot\:\ RobotModel\ Link\ base_linkAlpha=1
 Robot\:\ RobotModel\ Link\ base_linkEnabled=1
@@ -213,6 +217,9 @@ Name=Intermediary plan
 [Display12]
 ClassName=rviz::MapDisplay
 Name=Map
+[Display13]
+ClassName=rviz::MarkerDisplay
+Name=Marker
 [Display2]
 ClassName=rviz::TFDisplay
 Name=TF
@@ -253,11 +260,12 @@ left_track.Enabled=0
 map.Enabled=1
 odom.Enabled=0
 omnicam.Enabled=0
+ptz.Enabled=1
 rear_left_flipper.Enabled=0
 rear_right_flipper.Enabled=0
 right_track.Enabled=0
 [Window]
 Height=876
 Width=1600
-X=1697
-Y=-15
+X=1695
+Y=-71

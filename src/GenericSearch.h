@@ -3,6 +3,9 @@
 
 #include "TensorMap.h"
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Point.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 #include <vector>
 #include <memory>
 #include "tensorUtils.h"
@@ -131,6 +134,7 @@ public:
 				const auto n_dir = ((((3+sqrt(3))/4)*((n.array()/cell_dims).matrix().normalized())).array()*cell_dims).matrix();
 				const SN* cell1 = &getNodeAt(p+n_dir);
 				const SN* cell2 = &getNodeAt(p-n_dir);
+				//assert((cell1!=node_ptr)&&(cell2!=node_ptr)&&(cell1!=cell2));
 				// checking for local maximum (inside list or not)
 				if (sal>cell1->cell.stick_sal) {
 					if (sal>cell2->cell.stick_sal) {
@@ -210,6 +214,37 @@ public:
 	void setStart(const geometry_msgs::Pose& start) {
 		start_node = &getNodeAt(dense_map->positionToIndex(poseToVector(start)));
 		start_node->cell.traversability = OK;
+	}
+
+	//! Adds a marker to visualize
+	virtual void appendMarker(visualization_msgs::MarkerArray& array) {
+		visualization_msgs::Marker marker;
+		fillMarker(marker);
+		array.markers.push_back(marker);
+	}
+	//! Fill a marker message to visualize
+	virtual void fillMarker(visualization_msgs::Marker& marker) {
+		marker.header.frame_id = "/map";
+		marker.header.stamp = ros::Time();
+		marker.ns = "trp";
+		marker.id = 0;
+		marker.type = visualization_msgs::Marker::CUBE_LIST;
+		marker.action = visualization_msgs::Marker::ADD;
+		marker.scale.x = 0.6*tensor_map_params->cell_dimensions[0];
+		marker.scale.y = 0.6*tensor_map_params->cell_dimensions[1];
+		marker.scale.z = 0.6*tensor_map_params->cell_dimensions[2];
+		marker.color.a = 0.3;
+		marker.color.r = 0.0;
+		marker.color.g = 0.7;
+		marker.color.b = 0.7;	
+  		for (const auto &it: search_node_map) {
+			auto pos = dense_map->indexToPosition(it.first);
+			geometry_msgs::Point point;
+			point.x = pos[0];
+			point.y = pos[1];
+			point.z = pos[2];
+			marker.points.push_back(point);
+		}
 	}
 
 protected:
