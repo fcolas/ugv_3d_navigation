@@ -1,10 +1,10 @@
 <launch>
-	<node name="replanner" type="tensor_replanner" pkg="tensorPlanner" output="screen" >
-		<param name="config" value="$(find tensorPlanner)/launch/config.yaml"/>
+	<node name="replanner" type="tensor_replanner" pkg="ugv_3d_navigation" output="screen" >
+		<param name="config" value="$(find ugv_3d_navigation)/launch/config.yaml"/>
 		<remap from="/cmd_vel" to="/private/nav/cmd_vel"/>
 	</node>
 	<node pkg="nifti_teleop" type="priority_wrapper.py"
 		name="priority_wrapper_tensor">
 	</node>
-	<!--node name="marker" type="goal_interact_marker" pkg="tensorPlanner" output="screen" /-->
+	<!--node name="marker" type="goal_interact_marker" pkg="ugv_3d_navigation" output="screen" /-->
 </launch>

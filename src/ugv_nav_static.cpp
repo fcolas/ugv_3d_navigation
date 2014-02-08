@@ -35,7 +35,7 @@
 #include "GenericSearch.h"
 #include "DStarLite.h"
 // Path execution
-#include "PathExecution.h"
+#include "LocalPlanner.h"
 // Parameters
 #include "trp_params.h"
 // Timing
@@ -48,13 +48,13 @@ typedef actionlib::SimpleActionServer<move_base_msgs::MoveBaseAction> ActionServ
 
 
 //! Motion planning and execution from point cloud using tensor voting
-class TensorRePlanner {
+class StaticNav {
 public:
 	//! Constructor. ROS::init() is assumed to have been called before.
-	TensorRePlanner();
+	StaticNav();
 
 	//! Destructor (nothing done).
-	virtual ~TensorRePlanner();
+	virtual ~StaticNav();
 
 protected:
 	//! Tensor map
@@ -64,7 +64,7 @@ protected:
 	DStarPathPlanner planner;
 
 	//! Path execution
-	PathExecution path_execution;
+	LocalPlanner local_planner;
 
 	//! Current Goal
 	geometry_msgs::Pose goal;
@@ -174,7 +174,7 @@ protected:
 	geometry_msgs::Pose getRobotPose() const;
 
 	//! Publish a path in ROS (for quick visualization)
-	void publishPath(const vector<PathElement>& path, ros::Publisher& pub);
+	void publishPath(const vector<DecoratedPathElement>& path, ros::Publisher& pub);
 
 	//! Serialize planning problem: input point cloud + start and goal positions
 	void serializeProblem(const string& directory) const;
@@ -186,14 +186,14 @@ protected:
 
 
 // Constructor
-TensorRePlanner::TensorRePlanner():
+StaticNav::StaticNav():
 	tensor_map(),
 	planner(tensor_map),
 	use_start(false),
 	cancel_called(false),
 	n_("~"),
 	tf_listener(ros::Duration(20.)),
-	as_(n, "trp_as", boost::bind(&TensorRePlanner::executeCB, this, _1), false)
+	as_(n, "uns_as", boost::bind(&StaticNav::executeCB, this, _1), false)
 {
 	//ROS_INFO("Start of constructor.");
 	// parameters
@@ -204,29 +204,29 @@ TensorRePlanner::TensorRePlanner():
 	path_pub = n.advertise<nav_msgs::Path>("/planned_path", 1);
 	repath_pub = n.advertise<nav_msgs::Path>("/replanned_path", 1);
 	getPointMapClient = n.serviceClient<map_msgs::GetPointMap>("dynamic_point_map");
-	action_goal_pub = n.advertise<move_base_msgs::MoveBaseActionGoal>("/trp_as/goal", 1);
-	marker_pub = n.advertise<visualization_msgs::Marker>("/trp/marker", 1);
-	marker_array_pub = n.advertise<visualization_msgs::MarkerArray>("/trp/marker_array", 1);
+	action_goal_pub = n.advertise<move_base_msgs::MoveBaseActionGoal>("/uns_as/goal", 1);
+	marker_pub = n.advertise<visualization_msgs::Marker>("/uns/marker", 1);
+	marker_array_pub = n.advertise<visualization_msgs::MarkerArray>("/uns/marker_array", 1);
 
 	
 	// starting action server
 	as_.start();
 
 	// subscriptions and services (last so that the rest is initialized)
-	stopExecutionSub = n.subscribe("simple_cancel", 1, &TensorRePlanner::stopExecutionCB, this);
-	callMapSrv = n.advertiseService("call_global_map", &TensorRePlanner::callMapSrvCB, this);
-	setGoalSrv = n.advertiseService("set_goal", &TensorRePlanner::setGoalSrvCB, this);
-	computePlanSrv = n.advertiseService("compute_plan", &TensorRePlanner::computePlanSrvCB, this);
-	executePlanSrv = n.advertiseService("execute_plan", &TensorRePlanner::executePlanSrvCB, this);
-	serializationSrv = n.advertiseService("serialization", &TensorRePlanner::serializationSrvCB, this);
-	goal_sub = n.subscribe("simple_goal", 1, &TensorRePlanner::simpleGoalCB, this);
+	stopExecutionSub = n.subscribe("simple_cancel", 1, &StaticNav::stopExecutionCB, this);
+	callMapSrv = n.advertiseService("call_global_map", &StaticNav::callMapSrvCB, this);
+	setGoalSrv = n.advertiseService("set_goal", &StaticNav::setGoalSrvCB, this);
+	computePlanSrv = n.advertiseService("compute_plan", &StaticNav::computePlanSrvCB, this);
+	executePlanSrv = n.advertiseService("execute_plan", &StaticNav::executePlanSrvCB, this);
+	serializationSrv = n.advertiseService("serialization", &StaticNav::serializationSrvCB, this);
+	goal_sub = n.subscribe("simple_goal", 1, &StaticNav::simpleGoalCB, this);
 
 	//ROS_INFO("End of constructor.");
 }
 
 
 // Destructor (nothing done)
-TensorRePlanner::~TensorRePlanner() {
+StaticNav::~StaticNav() {
 	// Nothing to do?
 }
 
@@ -236,7 +236,7 @@ TensorRePlanner::~TensorRePlanner() {
  * callback section
  */
 // Callback for getting map from mapper
-bool TensorRePlanner::callMapSrvCB(ugv_3d_navigation::CallGlobalMap::Request& req,
+bool StaticNav::callMapSrvCB(ugv_3d_navigation::CallGlobalMap::Request& req,
 		ugv_3d_navigation::CallGlobalMap::Response& res) {
 	ROS_INFO_STREAM("callMapSrvCB");
 	res.dummy = callMap();
@@ -246,7 +246,7 @@ bool TensorRePlanner::callMapSrvCB(ugv_3d_navigation::CallGlobalMap::Request& re
 
 
 // Callback for setting goal to plan path to 
-bool TensorRePlanner::setGoalSrvCB(ugv_3d_navigation::ConfirmGoalStamped::Request& req,
+bool StaticNav::setGoalSrvCB(ugv_3d_navigation::ConfirmGoalStamped::Request& req,
 		ugv_3d_navigation::ConfirmGoalStamped::Response& res) {
 	ROS_INFO_STREAM("setGoalSrvCB");
 	res.is_valid = setGoal(req.goal);
@@ -259,7 +259,7 @@ bool TensorRePlanner::setGoalSrvCB(ugv_3d_navigation::ConfirmGoalStamped::Reques
 
 
 // Callback for computing plan toward the goal
-bool TensorRePlanner::computePlanSrvCB(ugv_3d_navigation::ComputePlan::Request& req,
+bool StaticNav::computePlanSrvCB(ugv_3d_navigation::ComputePlan::Request& req,
 		ugv_3d_navigation::ComputePlan::Response& res) {
 	ROS_INFO_STREAM("computePlanSrvCB");
 	res.plan_found = computePlan();
@@ -269,7 +269,7 @@ bool TensorRePlanner::computePlanSrvCB(ugv_3d_navigation::ComputePlan::Request& 
 
 
 // Callback to start executing plan toward the goal
-bool TensorRePlanner::executePlanSrvCB(ugv_3d_navigation::ExecutePlan::Request& req,
+bool StaticNav::executePlanSrvCB(ugv_3d_navigation::ExecutePlan::Request& req,
 		ugv_3d_navigation::ExecutePlan::Response& res) {
 	ROS_INFO_STREAM("executePlanSrvCB");
 	res.plan_executed = executePlan();
@@ -279,7 +279,7 @@ bool TensorRePlanner::executePlanSrvCB(ugv_3d_navigation::ExecutePlan::Request& 
 
 
 // Callback to store or load the state
-bool TensorRePlanner::serializationSrvCB(ugv_3d_navigation::Serialization::Request& req,
+bool StaticNav::serializationSrvCB(ugv_3d_navigation::Serialization::Request& req,
 		ugv_3d_navigation::Serialization::Response& res) {
 	ROS_INFO_STREAM("serializationSrvCB: "<<static_cast<int>(req.store)<<" "<<
 			static_cast<int>(req.step)<<" "<<req.directory);
@@ -295,7 +295,7 @@ bool TensorRePlanner::serializationSrvCB(ugv_3d_navigation::Serialization::Reque
 			planner.serialize(req.directory);
 			break;
 		case ugv_3d_navigation::Serialization::Request::PATH:
-			path_execution.serialize(req.directory+"/path.csv");
+			local_planner.serialize(req.directory+"/path.csv");
 			break;
 		case ugv_3d_navigation::Serialization::Request::PROBLEM:
 			serializeProblem(req.directory);
@@ -315,7 +315,7 @@ bool TensorRePlanner::serializationSrvCB(ugv_3d_navigation::Serialization::Reque
 			planner.deSerialize(req.directory);
 			break;
 		case ugv_3d_navigation::Serialization::Request::PATH:
-			path_execution.deSerialize(req.directory+"/path.csv");
+			local_planner.deSerialize(req.directory+"/path.csv");
 			break;
 		case ugv_3d_navigation::Serialization::Request::PROBLEM:
 			deSerializeProblem(req.directory);
@@ -330,7 +330,7 @@ bool TensorRePlanner::serializationSrvCB(ugv_3d_navigation::Serialization::Reque
 
 
 // Callback to stop execution
-void TensorRePlanner::stopExecutionCB(const std_msgs::Bool& msg) {
+void StaticNav::stopExecutionCB(const std_msgs::Bool& msg) {
 	ROS_INFO_STREAM("stopExecutionCB: "<<msg);
 	cancel_called = true;
 	return;
@@ -338,84 +338,84 @@ void TensorRePlanner::stopExecutionCB(const std_msgs::Bool& msg) {
 
 
 // Callback for the action server
-void TensorRePlanner::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal) {
-	ROS_INFO_STREAM("[trp_as] received goal: "<<goal->target_pose);
+void StaticNav::executeCB(const move_base_msgs::MoveBaseGoalConstPtr& goal) {
+	ROS_INFO_STREAM("[uns_as] received goal: "<<goal->target_pose);
 	cancel_called = false;
 
 	// initialize feedback
 	feedback_.base_position = getRobotPoseStamped();
 
 	// getting map
-	ROS_INFO_STREAM("[trp_as] requesting map...");
+	ROS_INFO_STREAM("[uns_as] requesting map...");
 	if (!callMap()) {
-		ROS_WARN_STREAM("[trp_as] cannot get map: aborting.");
+		ROS_WARN_STREAM("[uns_as] cannot get map: aborting.");
 		as_.setAborted(result_, "Couldn't get map.");
 		return;
 	} else {
-		ROS_INFO_STREAM("[trp_as] got map.");
+		ROS_INFO_STREAM("[uns_as] got map.");
 	}
 	
 	// setting goal
-	ROS_INFO_STREAM("[trp_as] validating goal...");
+	ROS_INFO_STREAM("[uns_as] validating goal...");
 	if (!setGoal(goal->target_pose)) {
-		ROS_WARN_STREAM("[trp_as] goal invalid: aborting.");
+		ROS_WARN_STREAM("[uns_as] goal invalid: aborting.");
 		as_.setAborted(result_, "Goal invalid.");
 		return;
 	} else {
-		ROS_INFO_STREAM("[trp_as] goal valid.");
+		ROS_INFO_STREAM("[uns_as] goal valid.");
 	}
 	
 	// computing plan
-	ROS_INFO_STREAM("[trp_as] computing initial path...");
+	ROS_INFO_STREAM("[uns_as] computing initial path...");
 	if (!computePlan()) {
-		ROS_WARN_STREAM("[trp_as] couldn't find initial path.");
+		ROS_WARN_STREAM("[uns_as] couldn't find initial path.");
 		as_.setAborted(result_, "Couldn't find initial path.");
 		return;
 	} else {
-		ROS_INFO_STREAM("[trp_as] found initial path.");
+		ROS_INFO_STREAM("[uns_as] found initial path.");
 	}
 
 	// executing plan
-	ROS_INFO_STREAM("[trp_as] executing path...");
+	ROS_INFO_STREAM("[uns_as] executing path...");
 	if (!executePlan()) {
 		if (as_.isPreemptRequested()) {
-			ROS_INFO_STREAM("[trp_as] preempting.");
+			ROS_INFO_STREAM("[uns_as] preempting.");
 			as_.setPreempted();
 		} else if (cancel_called) {
-			ROS_INFO_STREAM("[trp_as] cancelling.");
+			ROS_INFO_STREAM("[uns_as] cancelling.");
 			as_.setAborted(result_, "Cancel called.");
 			cancel_called = false;
 		} else {
-			ROS_INFO_STREAM("[trp_as] failure.");
+			ROS_INFO_STREAM("[uns_as] failure.");
 			as_.setAborted(result_, "Failed to execute the path.");
 		}
-	} else if (!path_execution.cur_slope) {
+	} else {// TODO check that we're allowed to turn  if (!local_planner.cur_slope) {
 		if (!finalAlignment()) {
 			if (as_.isPreemptRequested()) {
-				ROS_INFO_STREAM("[trp_as] preempting.");
+				ROS_INFO_STREAM("[uns_as] preempting.");
 				as_.setPreempted();
 			} else if (cancel_called) {
-				ROS_INFO_STREAM("[trp_as] cancelling.");
+				ROS_INFO_STREAM("[uns_as] cancelling.");
 				as_.setAborted(result_, "Cancel called.");
 				cancel_called = false;
 			} else {
-				ROS_INFO_STREAM("[trp_as] failure.");
+				ROS_INFO_STREAM("[uns_as] failure.");
 				as_.setAborted(result_, "Failed to align to the goal.");
 			}
 		} else {
-			ROS_INFO_STREAM("[trp_as] success.");
+			ROS_INFO_STREAM("[uns_as] success.");
 			as_.setSucceeded(result_);
 		}
-	} else {
-		ROS_INFO_STREAM("[trp_as] success.");
+	}/* else {
+		ROS_INFO_STREAM("[uns_as] success.");
 		as_.setSucceeded(result_);
-	}
+	}*/
 }
 
 
 // Callback for simple goal (forward to action goal)
-void TensorRePlanner::simpleGoalCB(const geometry_msgs::PoseStamped& goal) {
-	ROS_INFO_STREAM("[trp_sg] received simple goal: " << goal << " (forwarding)");
+void StaticNav::simpleGoalCB(const geometry_msgs::PoseStamped& goal) {
+	ROS_INFO_STREAM("[uns_sg] received simple goal: " << goal << " (forwarding)");
 	move_base_msgs::MoveBaseActionGoal action_goal;
 	action_goal.header.stamp = ros::Time::now();
 	action_goal.goal.target_pose = goal;
@@ -424,7 +424,7 @@ void TensorRePlanner::simpleGoalCB(const geometry_msgs::PoseStamped& goal) {
 
 
 // Get map
-bool TensorRePlanner::callMap() {
+bool StaticNav::callMap() {
 	map_msgs::GetPointMap srvMsg;
 	getPointMapClient.call(srvMsg);
 	sensor_msgs::PointCloud2 tmp_cloud = srvMsg.response.map;
@@ -445,7 +445,7 @@ bool TensorRePlanner::callMap() {
 
 
 // Set goal
-bool TensorRePlanner::setGoal(const geometry_msgs::PoseStamped& goal_pose) {
+bool StaticNav::setGoal(const geometry_msgs::PoseStamped& goal_pose) {
 	// getting goal in global reference frame
 	geometry_msgs::PoseStamped goal_global;
 	if (!tf_listener.waitForTransform(goal_pose.header.frame_id, "/map",
@@ -468,7 +468,7 @@ bool TensorRePlanner::setGoal(const geometry_msgs::PoseStamped& goal_pose) {
 
 
 // Compute plan
-bool TensorRePlanner::computePlan() {
+bool StaticNav::computePlan() {
 	// setting start for planner
 	geometry_msgs::Pose start_pose;
 	if (use_start) {
@@ -478,7 +478,9 @@ bool TensorRePlanner::computePlan() {
 		start_pose = getRobotPose(); // get start from /tf
 	}
 	planner.setStart(start_pose);
-	path_execution.reInit(start_pose);
+	local_planner.reInit();
+	local_planner.setCurrentPose(start_pose,
+			tensor_map[tensor_map.positionToIndex(poseToVector(start_pose))]);
 
 	// doing path planning
 	MyTimer init_plan_timer;
@@ -493,12 +495,15 @@ bool TensorRePlanner::computePlan() {
 		ROS_INFO_STREAM("Planning successful.");
 		vector<const TensorCell*> path;
 		bool got_path = planner.fillPath(path);
+		ROS_INFO_STREAM("Path filled.");
 		if (!got_path) {
 			ROS_ERROR_STREAM("Couldn't get path after successful planning?!");
 			return false;
 		}
-		path_execution.decoratePath(path);
-		publishPath(path_execution.decorated_path, path_pub);
+		local_planner.decoratePath(path);
+		ROS_INFO_STREAM("Path decorated.");
+		publishPath(local_planner.decorated_path, path_pub);
+		ROS_INFO_STREAM("Path published.");
 		/*int t = 0;
 		for (auto &it: path) {
 			ROS_INFO_STREAM(t++ << ": (" << it->position(0) << ", " << it->position(1)\
@@ -513,14 +518,14 @@ bool TensorRePlanner::computePlan() {
 
 
 // Execute plan
-bool TensorRePlanner::executePlan() {
+bool StaticNav::executePlan() {
 	bool end_of_path=false;
 	FILE* executed = fopen("executed_path.csv", "w");
 
 	ros::Rate loop_rate(5); // FIXME find correct control frequency
 	
 	// initialize current slope and climbing state
-	path_execution.reInit(getRobotPose());
+	local_planner.reInit();
 
 	MyTimer replanning_timer;
 
@@ -551,7 +556,7 @@ bool TensorRePlanner::executePlan() {
 		Vector2f g_p(goal.position.x, goal.position.y);
 		Vector2f s_p(robot_pose.position.x, robot_pose.position.y);
 		// checking for close proximity with the goal
-		if ((g_p-s_p).norm()<path_execution_params->execution_params.max_distance) {
+		if ((g_p-s_p).norm()<local_planner_params->path_following_params.max_distance) {
 			fprintf(executed, ",\"Goal reached\"\n");
 			ROS_INFO("Goal reached");
 			end_of_path = true;
@@ -611,16 +616,22 @@ bool TensorRePlanner::executePlan() {
 			end_of_path = true;
 			break;
 		}
-		path_execution.decoratePath(path);
-		publishPath(path_execution.decorated_path, repath_pub);
-		path_execution.serialize("./tmp_path.csv");
+		local_planner.setCurrentPose(robot_pose,
+				tensor_map[tensor_map.positionToIndex(poseToVector(robot_pose))]);
+		ROS_INFO_STREAM("Path decoration.");
+		local_planner.decoratePath(path);
+		ROS_INFO_STREAM("Path decorated.");
+		publishPath(local_planner.decorated_path, repath_pub);
+		ROS_INFO_STREAM("Path published.");
+		local_planner.serialize(".");
+		ROS_INFO_STREAM("Path serialized.");
 
 		geometry_msgs::Twist cmd_vel_msg; // default to stop
 		cmd_vel_msg.linear.x = cmd_vel_msg.angular.z = 0;
 		std_msgs::Int32 posture_msg;
 		posture_msg.data = 1; // default to drive
-		end_of_path = path_execution.executePath(robot_pose, cmd_vel_msg,
-			&(posture_msg.data));
+		ROS_INFO_STREAM("Getting command.");
+		end_of_path = local_planner.getCommands(cmd_vel_msg, &(posture_msg.data));
 		ROS_INFO_STREAM("Plan ok: executing (v="<<cmd_vel_msg.linear.x<<", w="<<cmd_vel_msg.angular.z<<"), posture="<<posture_msg.data);
 		// publish commands (or default if end_of_path)
 		cmd_vel_pub.publish(cmd_vel_msg);
@@ -652,7 +663,7 @@ bool TensorRePlanner::executePlan() {
 
 
 // Align to goal
-bool TensorRePlanner::finalAlignment() {
+bool StaticNav::finalAlignment() {
 	bool aligned=false;
 
 	ros::Rate loop_rate(5); // FIXME find correct control frequency
@@ -661,8 +672,8 @@ bool TensorRePlanner::finalAlignment() {
 
 	enum {TurnToPosition, MoveToPosition, TurnToOrientation} state = TurnToPosition;
 
-	const float v_max = path_execution_params->execution_params.v_max_flat;
-	const float w_max = path_execution_params->execution_params.w_max_flat;
+	const float v_max = local_planner_params->path_following_params.v_max_flat;
+	const float w_max = local_planner_params->path_following_params.w_max_flat;
 
 	// TODO: put that as parameters
 	const float pre_orient_limit = 2.5*M_PI/180.; //FIXME
@@ -709,7 +720,7 @@ bool TensorRePlanner::finalAlignment() {
 		}
 
 		geometry_msgs::Twist cmd_vel_msg;
-		ROS_INFO_STREAM("[trp_align] (x, y, yaw, d, angle)=("<<x<<", "<<y<<", "<<yaw<<", "<<d<<", "<<angle<<")");
+		ROS_INFO_STREAM("[uns_align] (x, y, yaw, d, angle)=("<<x<<", "<<y<<", "<<yaw<<", "<<d<<", "<<angle<<")");
 		switch (state) {
 		case TurnToPosition:
 			if ((x<0)&&(cos(yaw-angle)<0)) {
@@ -718,21 +729,21 @@ bool TensorRePlanner::finalAlignment() {
 			}
 			if (d<position_limit) { // close enough
 				state = TurnToOrientation;
-				ROS_INFO_STREAM("[trp_align] TurnToPosition -> TurnToOrientation");
+				ROS_INFO_STREAM("[uns_align] TurnToPosition -> TurnToOrientation");
 			} else if (fabs(angle)<pre_orient_limit) { // looking at the goal
 				state = MoveToPosition;
-				ROS_INFO_STREAM("[trp_align] TurnToPosition -> MoveToPosition");
+				ROS_INFO_STREAM("[uns_align] TurnToPosition -> MoveToPosition");
 			} else { // turning to head to goal
 				// P controller
 				cmd_vel_msg.angular.z = std::min(w_max, std::max(-w_max, P_rot*angle)); 
 				cmd_vel_pub.publish(cmd_vel_msg);
-				ROS_INFO_STREAM("[trp_align] TurnToPosition: w="<<cmd_vel_msg.angular.z<<" (angle="<<angle<<")");
+				ROS_INFO_STREAM("[uns_align] TurnToPosition: w="<<cmd_vel_msg.angular.z<<" (angle="<<angle<<")");
 			}
 			break;
 		case MoveToPosition:
 			if (d<position_limit) { // close enough
 				state = TurnToOrientation;
-				ROS_INFO_STREAM("[trp_align] MoveToPosition -> TurnToOrientation");
+				ROS_INFO_STREAM("[uns_align] MoveToPosition -> TurnToOrientation");
 			} else { // moving closer
 				// P controller
 				if (x>0) {
@@ -741,18 +752,18 @@ bool TensorRePlanner::finalAlignment() {
 					cmd_vel_msg.linear.x = -std::min(v_max, P_trans*d);
 				}
 				cmd_vel_pub.publish(cmd_vel_msg);
-				ROS_INFO_STREAM("[trp_align] MoveToPosition: v="<<cmd_vel_msg.linear.x<<" (d="<<d<<", x="<<x<<")");
+				ROS_INFO_STREAM("[uns_align] MoveToPosition: v="<<cmd_vel_msg.linear.x<<" (d="<<d<<", x="<<x<<")");
 			}
 			break;
 		case TurnToOrientation:
 			if (cos(yaw)>cos(last_orient_limit)) { // good enough
 				aligned = true;
-				ROS_INFO_STREAM("[trp_align] TurnToOrientation -> Done!");
+				ROS_INFO_STREAM("[uns_align] TurnToOrientation -> Done!");
 			} else { // turning to align to orientation
 				// P controller
 				cmd_vel_msg.angular.z = std::min(w_max, std::max(-w_max, P_rot*yaw));
 				cmd_vel_pub.publish(cmd_vel_msg);
-				ROS_INFO_STREAM("[trp_align] TurnToOrientation: w="<<cmd_vel_msg.angular.z<<" (yaw="<<yaw<<")");
+				ROS_INFO_STREAM("[uns_align] TurnToOrientation: w="<<cmd_vel_msg.angular.z<<" (yaw="<<yaw<<")");
 			}
 			break;
 		}
@@ -773,7 +784,7 @@ bool TensorRePlanner::finalAlignment() {
 }
 
 // Get current robot pose in map coordinate frame
-geometry_msgs::PoseStamped TensorRePlanner::getRobotPoseStamped() const {
+geometry_msgs::PoseStamped StaticNav::getRobotPoseStamped() const {
 	// First get the position of the robot in the map frame
 	geometry_msgs::PoseStamped robot_pose;
 	robot_pose.header.frame_id = "/base_link";
@@ -802,19 +813,19 @@ geometry_msgs::PoseStamped TensorRePlanner::getRobotPoseStamped() const {
 	return new_pose;
 }
 // Get current robot pose in map coordinate frame
-geometry_msgs::Pose TensorRePlanner::getRobotPose() const {
+geometry_msgs::Pose StaticNav::getRobotPose() const {
 	return getRobotPoseStamped().pose;
 }
 
 
 // Publish a path in ROS (for quick visualization)
-void TensorRePlanner::publishPath(const vector<PathElement>& path,
+void StaticNav::publishPath(const vector<DecoratedPathElement>& path,
 		ros::Publisher& pub) {
 	// Marker
 	visualization_msgs::Marker marker;
 	marker.header.frame_id = "/map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "trp";
+	marker.ns = "uns";
 	marker.id = 1;
 	marker.type = visualization_msgs::Marker::LINE_STRIP;
 	marker.action = visualization_msgs::Marker::ADD;
@@ -855,7 +866,7 @@ void TensorRePlanner::publishPath(const vector<PathElement>& path,
 
 
 // Serialize planning problem
-void TensorRePlanner::serializeProblem(const string& directory) const {
+void StaticNav::serializeProblem(const string& directory) const {
 	serializePointCloud(input_point_cloud, directory+"/input_point_cloud.csv");
 	/*
 	 * serialization of start and goal poses in csv
@@ -885,7 +896,7 @@ void TensorRePlanner::serializeProblem(const string& directory) const {
 
 
 // Deserialize planning problem (and set use_start flag)
-void TensorRePlanner::deSerializeProblem(const string& directory) {
+void StaticNav::deSerializeProblem(const string& directory) {
 	deSerializePointCloud(input_point_cloud,
 			directory+"/input_point_cloud.csv");
 	/*
@@ -939,9 +950,9 @@ void TensorRePlanner::deSerializeProblem(const string& directory) {
  * main
  */
 int main(int argc, char **argv) {
-	ros::init(argc, argv, "tensor_replanner");
-	cout << "Initializing tensor_replanner" << endl;
-	TensorRePlanner trp;
+	ros::init(argc, argv, "ugv_nav_static");
+	cout << "Initializing ugv_nav_static" << endl;
+	StaticNav uns;
 	TRPParams params;
 	string config_filename;
 	ros::NodeHandle nh("~");
@@ -952,7 +963,7 @@ int main(int argc, char **argv) {
 	load_params(config_filename, params);
 	cost_functions_params = &params.cost_functions;
 	tensor_map_params = &params.tensor_map;
-	path_execution_params = &params.path_execution;
+	local_planner_params = &params.local_planner;
 	cout << "Spinning" << endl;
 	ros::spin();
 	return 0;

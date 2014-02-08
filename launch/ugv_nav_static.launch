@@ -1,0 +1,9 @@
+<launch>
+	<node name="ugv_nav" type="ugv_nav_static" pkg="ugv_3d_navigation" output="screen" >
+		<remap from="/cmd_vel" to="/private/nav/cmd_vel"/>
+	</node>
+	<node pkg="nifti_teleop" type="priority_wrapper.py"
+		name="priority_wrapper_tensor">
+	</node>
+	<node name="marker" type="goal_interact_marker" pkg="ugv_3d_navigation" output="screen" />
+</launch>

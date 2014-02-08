@@ -1,13 +1,13 @@
 <package>
-  <description brief="tensorPlanner">
+  <description brief="ugv_3d_navigation">
 
-     Path planner based on tensor voting.
+     3D navigation for ground vehicles.
 
   </description>
   <author>Francis Colas, Francois Pomerleau and Srivatsa Mahesh</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/tensorPlanner</url>
+  <url>http://ros.org/wiki/ugv_3d_navigation</url>
   <depend package="roscpp"/>
   <depend package="sensor_msgs"/>
   <depend package="nav_msgs"/>
@@ -26,6 +26,7 @@
   <depend package="move_base_msgs"/>
   <depend package="actionlib"/>
   <depend package="actionlib_msgs"/>
+  <rosdep name="octomap"/>
 </package>
 
 

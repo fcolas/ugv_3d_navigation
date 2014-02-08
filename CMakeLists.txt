@@ -21,6 +21,11 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 #uncomment if you have defined services
 rosbuild_gensrv()
 
+# octomap
+find_package(octomap REQUIRED)
+include_directories(${OCTOMAP_INCLUDE_DIRS})
+link_libraries(${OCTOMAP_LIBRARIES})
+
 # c++ 0x
 #if("${CMAKE_CXX_COMPILER_ID}" MATCHES "clang") 
 #	set(CMAKE_COMPILER_IS_CLANGXX)
@@ -60,36 +65,32 @@ if (yaml-cpp_INCLUDE_DIRS AND yaml-cpp_LIBRARIES)
 endif (yaml-cpp_INCLUDE_DIRS AND yaml-cpp_LIBRARIES)
 
 rosbuild_add_boost_directories()
-#rosbuild_add_executable(tensor_planner src/tensorPlanner.cpp)
-#rosbuild_link_boost(tensor_planner filesystem system)
-#target_link_libraries(tensor_planner ${EXTRA_LIBS} pointmatcher nabo argtable2 rt)
-
 
 rosbuild_add_executable(goal_interact_marker src/goalInteractMarker.cpp)
 
-rosbuild_add_executable(tensor_replanner src/tensorRePlanner.cpp
+rosbuild_add_executable(ugv_nav_static src/ugv_nav_static.cpp
 	src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
-	src/DStarLite.cpp src/PathExecution.cpp src/trp_params.cpp src/MyTimer.cpp)
+	src/DStarLite.cpp src/LocalPlanner.cpp src/trp_params.cpp src/MyTimer.cpp)
 # filesystem and system are needed from pointmatcher
-rosbuild_link_boost(tensor_replanner filesystem system)
+rosbuild_link_boost(ugv_nav_static filesystem system)
 # EXTRA_LIBS and nabo needed for pointmatcher
-target_link_libraries(tensor_replanner ${EXTRA_LIBS} pointmatcher nabo)
+target_link_libraries(ugv_nav_static ${EXTRA_LIBS} pointmatcher nabo)
 
-rosbuild_add_executable(trp_batch src/trp_batch.cpp
-	src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
-	src/DStarLite.cpp src/PathExecution.cpp src/trp_params.cpp src/MyTimer.cpp)
-rosbuild_link_boost(trp_batch filesystem system)
+#rosbuild_add_executable(trp_batch src/trp_batch.cpp
+#	src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
+#	src/DStarLite.cpp src/PathExecution.cpp src/trp_params.cpp src/MyTimer.cpp)
+#rosbuild_link_boost(trp_batch filesystem system)
 # EXTRA_LIBS and nabo needed for pointmatcher
-target_link_libraries(trp_batch ${EXTRA_LIBS} pointmatcher nabo)
+#target_link_libraries(trp_batch ${EXTRA_LIBS} pointmatcher nabo)
 
-rosbuild_add_executable(trpb_viz src/trpb_viz.cpp src/tensorUtils.cpp)
+#rosbuild_add_executable(trpb_viz src/trpb_viz.cpp src/tensorUtils.cpp)
 # filesystem and system are needed from pointmatcher
 #rosbuild_link_boost(trpb_viz filesystem system)
 # EXTRA_LIBS and nabo needed for pointmatcher
-target_link_libraries(trpb_viz ${EXTRA_LIBS})# pointmatcher)
+#target_link_libraries(trpb_viz ${EXTRA_LIBS})# pointmatcher)
 
-rosbuild_add_executable(input_viz src/input_viz.cpp src/tensorUtils.cpp)
-target_link_libraries(input_viz ${EXTRA_LIBS})
+#rosbuild_add_executable(input_viz src/input_viz.cpp src/tensorUtils.cpp)
+#target_link_libraries(input_viz ${EXTRA_LIBS})
 
 rosbuild_add_executable(dist_filter_eval src/dist_filter.cpp
 		src/tensorUtils.cpp)

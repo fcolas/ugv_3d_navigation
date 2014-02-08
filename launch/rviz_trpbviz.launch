@@ -1,8 +1,8 @@
 <launch>
 	<node pkg="rviz" type="rviz" output="screen" name="$(anon rviz)"
-		args="-d $(find tensorPlanner)/launch/trpbviz.vcg" />
-	<node pkg="tensorPlanner" type="trpb_viz" output="screen" name="trpb_viz"
-		args="$(find tensorPlanner)/test/st2 $(find tensorPlanner)/test/st2_cost_s100.000000_o0.000000_d1.000000_h0.000000/path.csv" />
+		args="-d $(find ugv_3d_navigation)/launch/trpbviz.vcg" />
+	<node pkg="ugv_3d_navigation" type="trpb_viz" output="screen" name="trpb_viz"
+		args="$(find ugv_3d_navigation)/test/st2 $(find ugv_3d_navigation)/test/st2_cost_s100.000000_o0.000000_d1.000000_h0.000000/path.csv" />
 	<param name="robot_description" command="cat $(find nifti_robot_driver)/robot_model/nifti_robot.urdf" />
 	<node pkg="robot_state_publisher" type="state_publisher"
 		name="nifti_tf_publisher" />

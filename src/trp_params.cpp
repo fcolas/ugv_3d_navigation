@@ -257,6 +257,9 @@ void operator>> (const YAML::Node& node, FlippersParams& p) {
 		node["flat_threshold"] >> p.flat_threshold;
 	} catch(YAML::KeyNotFound& e) {}
 	try{
+		node["change_threshold"] >> p.change_threshold;
+	} catch(YAML::KeyNotFound& e) {}
+	try{
 		node["approach_up_before"] >> p.approach_up_before;
 	} catch(YAML::KeyNotFound& e) {}
 	try{
@@ -286,6 +289,7 @@ YAML::Emitter& operator<< (YAML::Emitter& out, const FlippersParams& p) {
 	out << YAML::BeginMap;
 	out << YAML::Key << "slope_threshold" << YAML::Value << p.slope_threshold;
 	out << YAML::Key << "flat_threshold" << YAML::Value << p.flat_threshold;
+	out << YAML::Key << "change_threshold" << YAML::Value << p.change_threshold;
 	out << YAML::Key << "approach_up_before" << YAML::Value << p.approach_up_before;
 	out << YAML::Key << "approach_up_after" << YAML::Value << p.approach_up_after;
 	out << YAML::Key << "approach_down_before" << YAML::Value << p.approach_down_before;
@@ -298,9 +302,9 @@ YAML::Emitter& operator<< (YAML::Emitter& out, const FlippersParams& p) {
 	return out;
 }
 
-// yaml-cpp interface for ExecutionParams
+// yaml-cpp interface for PathFollowingParams
 // extraction
-void operator>> (const YAML::Node& node, ExecutionParams& p) {
+void operator>> (const YAML::Node& node, PathFollowingParams& p) {
 	try{
 		node["v_max_flat"] >> p.v_max_flat;
 	} catch(YAML::KeyNotFound& e) {}
@@ -321,7 +325,7 @@ void operator>> (const YAML::Node& node, ExecutionParams& p) {
 	} catch(YAML::KeyNotFound& e) {}
 }
 // emission
-YAML::Emitter& operator<< (YAML::Emitter& out, const ExecutionParams& p) {
+YAML::Emitter& operator<< (YAML::Emitter& out, const PathFollowingParams& p) {
 	out << YAML::BeginMap;
 	out << YAML::Key << "v_max_flat" << YAML::Value << p.v_max_flat;
 	out << YAML::Key << "w_max_flat" << YAML::Value << p.w_max_flat;
@@ -333,21 +337,21 @@ YAML::Emitter& operator<< (YAML::Emitter& out, const ExecutionParams& p) {
 	return out;
 }
 
-// yaml-cpp interface for PathExecutionParams
+// yaml-cpp interface for LocalPlannerParams
 // extraction
-void operator>> (const YAML::Node& node, PathExecutionParams& p) {
+void operator>> (const YAML::Node& node, LocalPlannerParams& p) {
 	try{
 		node["flippers_params"] >> p.flippers_params;
 	} catch(YAML::KeyNotFound& e) {}
 	try{
-		node["execution_params"] >> p.execution_params;
+		node["path_following_params"] >> p.path_following_params;
 	} catch(YAML::KeyNotFound& e) {}
 }
 // emission
-YAML::Emitter& operator<< (YAML::Emitter& out, const PathExecutionParams& p) {
+YAML::Emitter& operator<< (YAML::Emitter& out, const LocalPlannerParams& p) {
 	out << YAML::BeginMap;
 	out << YAML::Key << "flippers_params" << YAML::Value << p.flippers_params;
-	out << YAML::Key << "execution_params" << YAML::Value << p.execution_params;
+	out << YAML::Key << "path_following_params" << YAML::Value << p.path_following_params;
 	out << YAML::EndMap;
 	return out;
 }
@@ -362,7 +366,7 @@ void operator>> (const YAML::Node& node, TRPParams& p) {
 		node["cost_functions"] >> p.cost_functions;
 	} catch(YAML::KeyNotFound& e) {}
 	try{
-		node["path_execution"] >> p.path_execution;
+		node["local_planner"] >> p.local_planner;
 	} catch(YAML::KeyNotFound& e) {}
 }
 // emission
@@ -370,7 +374,7 @@ YAML::Emitter& operator<< (YAML::Emitter& out, const TRPParams& p) {
 	out << YAML::BeginMap;
 	out << YAML::Key << "tensor_map" << YAML::Value << p.tensor_map;
 	out << YAML::Key << "cost_functions" << YAML::Value << p.cost_functions;
-	out << YAML::Key << "path_execution" << YAML::Value << p.path_execution;
+	out << YAML::Key << "local_planner" << YAML::Value << p.local_planner;
 	out << YAML::EndMap;
 	return out;
 }

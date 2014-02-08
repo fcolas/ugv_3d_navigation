@@ -12,11 +12,11 @@
 #include <math.h>
 
 // Service definitions
-#include "tensorPlanner/CallGlobalMap.h"
-#include "tensorPlanner/ConfirmGoalStamped.h"
-#include "tensorPlanner/ComputePlan.h"
-#include "tensorPlanner/ExecutePlan.h"
-#include "tensorPlanner/Serialization.h"
+#include "ugv_3d_navigation/CallGlobalMap.h"
+#include "ugv_3d_navigation/ConfirmGoalStamped.h"
+#include "ugv_3d_navigation/ComputePlan.h"
+#include "ugv_3d_navigation/ExecutePlan.h"
+#include "ugv_3d_navigation/Serialization.h"
 
 using namespace visualization_msgs;
 using namespace interactive_markers;
@@ -67,7 +67,7 @@ void validateMenu(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &f
 void callMapCallback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
 {
 
- 	tensorPlanner::CallGlobalMap srvMsg;
+ 	ugv_3d_navigation::CallGlobalMap srvMsg;
 	callMapClient.call(srvMsg);
 	
 }
@@ -75,7 +75,7 @@ void callMapCallback( const visualization_msgs::InteractiveMarkerFeedbackConstPt
 void setGoalCallback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback )
 {
 
- 	tensorPlanner::ConfirmGoalStamped srvMsg;
+ 	ugv_3d_navigation::ConfirmGoalStamped srvMsg;
 	srvMsg.request.goal.pose = feedback->pose;
 	srvMsg.request.goal.header.stamp = ros::Time::now();
 	// see makeMenuMarker
@@ -97,7 +97,7 @@ void planCallback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &
 {
 	ROS_INFO_STREAM("Now planning ");
 	//Call service
-	tensorPlanner::ComputePlan srvMsg;
+	ugv_3d_navigation::ComputePlan srvMsg;
 	srvMsg.request.goal = feedback->pose;
 	//srvMsg.request.dummy = true;
 	planClient.call(srvMsg);
@@ -116,7 +116,7 @@ void executeCallback( const visualization_msgs::InteractiveMarkerFeedbackConstPt
 {
 	ROS_INFO_STREAM("Executing plan");
 	//Call service
-	tensorPlanner::ExecutePlan srvMsg;
+	ugv_3d_navigation::ExecutePlan srvMsg;
 	srvMsg.request.dummy = true;
 	exeClient.call(srvMsg);
 	
@@ -129,8 +129,8 @@ void executeCallback( const visualization_msgs::InteractiveMarkerFeedbackConstPt
 void saveSparseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Saving sparse map");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::SPARSE_MAP;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::SPARSE_MAP;
 	srvMsg.request.store = true;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -140,8 +140,8 @@ void saveSparseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConst
 void loadSparseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Loading sparse map");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::SPARSE_MAP;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::SPARSE_MAP;
 	srvMsg.request.store = false;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -151,8 +151,8 @@ void loadSparseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConst
 void saveDenseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Saving dense map");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::DENSE_MAP;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::DENSE_MAP;
 	srvMsg.request.store = true;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -162,8 +162,8 @@ void saveDenseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstP
 void loadDenseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Loading dense map");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::DENSE_MAP;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::DENSE_MAP;
 	srvMsg.request.store = false;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -173,8 +173,8 @@ void loadDenseCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstP
 void savePlannerCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Saving planner state");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::PLANNER;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::PLANNER;
 	srvMsg.request.store = true;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -184,8 +184,8 @@ void savePlannerCallBack(const visualization_msgs::InteractiveMarkerFeedbackCons
 void loadPlannerCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Loading planner state");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::PLANNER;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::PLANNER;
 	srvMsg.request.store = false;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -195,8 +195,8 @@ void loadPlannerCallBack(const visualization_msgs::InteractiveMarkerFeedbackCons
 void savePathCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Saving path");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::PATH;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::PATH;
 	srvMsg.request.store = true;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -206,8 +206,8 @@ void savePathCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPt
 void loadPathCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Loading path");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::PATH;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::PATH;
 	srvMsg.request.store = false;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -217,8 +217,8 @@ void loadPathCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPt
 void saveStartGoalCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Saving start and goal positions and input point cloud");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::PROBLEM;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::PROBLEM;
 	srvMsg.request.store = true;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -228,8 +228,8 @@ void saveStartGoalCallBack(const visualization_msgs::InteractiveMarkerFeedbackCo
 void loadStartGoalCallBack(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
 	ROS_INFO_STREAM("Loading start and goal positions and input point cloud");
 	// Call service
-	tensorPlanner::Serialization srvMsg;
-	srvMsg.request.step = tensorPlanner::Serialization::Request::PROBLEM;
+	ugv_3d_navigation::Serialization srvMsg;
+	srvMsg.request.step = ugv_3d_navigation::Serialization::Request::PROBLEM;
 	srvMsg.request.store = false;
 	srvMsg.request.directory = ".";
 	serializationClient.call(srvMsg);
@@ -340,11 +340,11 @@ int main(int argc, char** argv)
 	ros::NodeHandle n;
 	ptf_listener = new(tf::TransformListener);
 
-	callMapClient = n.serviceClient<tensorPlanner::CallGlobalMap>("call_global_map");
-	goalClient = n.serviceClient<tensorPlanner::ConfirmGoalStamped>("set_goal");
-	planClient = n.serviceClient<tensorPlanner::ComputePlan>("compute_plan");
-	exeClient = n.serviceClient<tensorPlanner::ExecutePlan>("execute_plan");
-	serializationClient = n.serviceClient<tensorPlanner::Serialization>("serialization");
+	callMapClient = n.serviceClient<ugv_3d_navigation::CallGlobalMap>("call_global_map");
+	goalClient = n.serviceClient<ugv_3d_navigation::ConfirmGoalStamped>("set_goal");
+	planClient = n.serviceClient<ugv_3d_navigation::ComputePlan>("compute_plan");
+	exeClient = n.serviceClient<ugv_3d_navigation::ExecutePlan>("execute_plan");
+	serializationClient = n.serviceClient<ugv_3d_navigation::Serialization>("serialization");
   server.reset( new InteractiveMarkerServer("goal","",false) );
 
   initMenu();

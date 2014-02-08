@@ -125,6 +125,7 @@ struct FlippersParams {
 	FlippersParams():
 		slope_threshold(17*M_PI/180),
 		flat_threshold(5*M_PI/180),
+		change_threshold(10*M_PI/180),
 		approach_up_before(7),
 		approach_up_after(3),
 		approach_down_before(7),
@@ -135,6 +136,7 @@ struct FlippersParams {
 		convex_down_after(3) {}
 	float slope_threshold;
 	float flat_threshold;
+	float change_threshold;
 	int approach_up_before;
 	int approach_up_after;
 	int approach_down_before;
@@ -146,10 +148,10 @@ struct FlippersParams {
 }; 
 
 
-//! Parameters for execution of a path
-struct ExecutionParams {
+//! Parameters for path following
+struct PathFollowingParams {
 	//! Constructor for default values
-	ExecutionParams():
+	PathFollowingParams():
 		v_max_flat(0.1),
 		w_max_flat(0.3),
 		v_max_slope(0.05),
@@ -166,11 +168,11 @@ struct ExecutionParams {
 
 
 //! Parameters for path execution
-struct PathExecutionParams {
+struct LocalPlannerParams {
 	//! Constructor for default values
-	PathExecutionParams() {} // unneeded 
+	LocalPlannerParams() {} // unneeded 
 		FlippersParams flippers_params;
-		ExecutionParams execution_params;
+		PathFollowingParams path_following_params;
 };
 
 
@@ -180,7 +182,7 @@ struct TRPParams {
 	TRPParams() {} // unneeded 
 	TensorMapParams tensor_map;
 	CostFunctionsParams cost_functions;
-	PathExecutionParams path_execution;
+	LocalPlannerParams local_planner;
 };
 
 
@@ -225,13 +227,13 @@ YAML::Emitter& operator<< (YAML::Emitter& out, const CostFunctionsParams& p);
 void operator>> (const YAML::Node& node, FlippersParams& p);
 YAML::Emitter& operator<< (YAML::Emitter& out, const FlippersParams& p);
 
-//! yaml-cpp interface for ExecutionParams
-void operator>> (const YAML::Node& node, ExecutionParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const ExecutionParams& p);
+//! yaml-cpp interface for PathFollowingParams
+void operator>> (const YAML::Node& node, PathFollowingParams& p);
+YAML::Emitter& operator<< (YAML::Emitter& out, const PathFollowingParams& p);
 
-//! yaml-cpp interface for PathExecutionParams
-void operator>> (const YAML::Node& node, PathExecutionParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const PathExecutionParams& p);
+//! yaml-cpp interface for LocalPlannerParams
+void operator>> (const YAML::Node& node, LocalPlannerParams& p);
+YAML::Emitter& operator<< (YAML::Emitter& out, const LocalPlannerParams& p);
 
 //! yaml-cpp interface for TRPParams
 void operator>> (const YAML::Node& node, TRPParams& p);

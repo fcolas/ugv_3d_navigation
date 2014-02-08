@@ -1,6 +1,6 @@
 <launch>
 	<node pkg="rviz" type="rviz" output="screen" name="$(anon rviz)"
-		args="-d $(find tensorPlanner)/launch/trp.vcg" />
+		args="-d $(find ugv_3d_navigation)/launch/trp.vcg" />
 	<param name="robot_description" command="cat $(find nifti_robot_driver)/robot_model/nifti_robot.urdf" />
 </launch>
 
