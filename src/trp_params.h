@@ -1,7 +1,7 @@
 #ifndef TRP_PARAMS_H
 #define TRP_PARAMS_H
 
-#include "yaml-cpp/yaml.h"
+#include "yaml-cpp-pm/yaml.h"
 #include <Eigen/Eigen>
 #include <string>
 #include <cmath>
@@ -200,44 +200,44 @@ void save_params(const string& filename, const TRPParams& p);
  * Specific interface
  */
 //! yaml-cpp interface for DistanceFilterParams
-void operator>> (const YAML::Node& node, DistanceFilterParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const DistanceFilterParams& p);
+void operator>> (const YAML_PM::Node& node, DistanceFilterParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const DistanceFilterParams& p);
 
 //! yaml-cpp interface for SparseVotingParams
-void operator>> (const YAML::Node& node, SparseVotingParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const SparseVotingParams& p);
+void operator>> (const YAML_PM::Node& node, SparseVotingParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const SparseVotingParams& p);
 
 //! yaml-cpp interface for DenseVotingParams
-void operator>> (const YAML::Node& node, DenseVotingParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const DenseVotingParams& p);
+void operator>> (const YAML_PM::Node& node, DenseVotingParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const DenseVotingParams& p);
 
 //! yaml-cpp interface for TraversabilityParams
-void operator>> (const YAML::Node& node, TraversabilityParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const TraversabilityParams& p);
+void operator>> (const YAML_PM::Node& node, TraversabilityParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const TraversabilityParams& p);
 
 //! yaml-cpp interface for TensorMapParams
-void operator>> (const YAML::Node& node, TensorMapParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const TensorMapParams& p);
+void operator>> (const YAML_PM::Node& node, TensorMapParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const TensorMapParams& p);
 
 //! yaml-cpp interface for CostFunctionsParams
-void operator>> (const YAML::Node& node, CostFunctionsParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const CostFunctionsParams& p);
+void operator>> (const YAML_PM::Node& node, CostFunctionsParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const CostFunctionsParams& p);
 
 //! yaml-cpp interface for FlippersParams
-void operator>> (const YAML::Node& node, FlippersParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const FlippersParams& p);
+void operator>> (const YAML_PM::Node& node, FlippersParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const FlippersParams& p);
 
 //! yaml-cpp interface for PathFollowingParams
-void operator>> (const YAML::Node& node, PathFollowingParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const PathFollowingParams& p);
+void operator>> (const YAML_PM::Node& node, PathFollowingParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const PathFollowingParams& p);
 
 //! yaml-cpp interface for LocalPlannerParams
-void operator>> (const YAML::Node& node, LocalPlannerParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const LocalPlannerParams& p);
+void operator>> (const YAML_PM::Node& node, LocalPlannerParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const LocalPlannerParams& p);
 
 //! yaml-cpp interface for TRPParams
-void operator>> (const YAML::Node& node, TRPParams& p);
-YAML::Emitter& operator<< (YAML::Emitter& out, const TRPParams& p);
+void operator>> (const YAML_PM::Node& node, TRPParams& p);
+YAML_PM::Emitter& operator<< (YAML_PM::Emitter& out, const TRPParams& p);
 
 
 #endif

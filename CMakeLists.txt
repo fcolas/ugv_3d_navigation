@@ -1,30 +1,46 @@
-cmake_minimum_required(VERSION 2.4.6)
-include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
+cmake_minimum_required(VERSION 2.8.3)
+project(ugv_3d_navigation)
 
-# Set the build type.  Options are:
-#  Coverage       : w/ debug symbols, w/o optimization, w/ code-coverage
-#  Debug          : w/ debug symbols, w/o optimization
-#  Release        : w/o debug symbols, w/ optimization
-#  RelWithDebInfo : w/ debug symbols, w/ optimization
-#  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-set(ROS_BUILD_TYPE RelWithDebInfo)
+## Find catkin macros and libraries
+## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
+## is used, also find other catkin packages
+find_package(catkin REQUIRED COMPONENTS
+  message_generation
+  actionlib
+  eigen
+  geometry_msgs
+  interactive_markers
+  libnabo
+  libpointmatcher
+  libpointmatcher_ros
+  map_msgs
+  move_base_msgs
+  nav_msgs
+  pcl_ros
+  roscpp
+  sensor_msgs
+  std_msgs
+  tf
+  visualization_msgs
+)
 
-rosbuild_init()
+## System dependencies are found with CMake's conventions
+find_package(Boost REQUIRED COMPONENTS filesystem system)
+# look for yaml-cpp library
+#find_path(yaml-cpp_INCLUDE_DIRS yaml-cpp/yaml.h
+#	/usr/local/include
+#	/usr/include
+#)
+#find_library(yaml-cpp_LIBRARIES yaml-cpp PATHS
+#	/usr/local/lib
+#	/usr/lib
+#NO_DEFAULT_PATH)
+#if (yaml-cpp_INCLUDE_DIRS AND yaml-cpp_LIBRARIES)
+#	include_directories(${yaml-cpp_INCLUDE_DIRS})
+#	#set(EXTRA_LIBS ${EXTRA_LIBS} ${yaml-cpp_LIBRARIES})
+#	add_definitions(-DHAVE_YAML_CPP)
+#endif (yaml-cpp_INCLUDE_DIRS AND yaml-cpp_LIBRARIES)
 
-#set the default path for built executables to the "bin" directory
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-#set the default path for built libraries to the "lib" directory
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
-
-#uncomment if you have defined messages
-# rosbuild_genmsg()
-#uncomment if you have defined services
-rosbuild_gensrv()
-
-# octomap
-find_package(octomap REQUIRED)
-include_directories(${OCTOMAP_INCLUDE_DIRS})
-link_libraries(${OCTOMAP_LIBRARIES})
 
 # c++ 0x
 #if("${CMAKE_CXX_COMPILER_ID}" MATCHES "clang") 
@@ -49,59 +65,190 @@ endif(CMAKE_COMPILER_IS_GNUCXX)
 # - N1984: auto-typed variables (gcc, clang)
 
 
-# look for yaml-cpp library
-find_path(yaml-cpp_INCLUDE_DIRS yaml-cpp/yaml.h
-	/usr/local/include
-	/usr/include
+## Uncomment this if the package has a setup.py. This macro ensures
+## modules and global scripts declared therein get installed
+## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
+# catkin_python_setup()
+
+################################################
+## Declare ROS messages, services and actions ##
+################################################
+
+## To declare and build messages, services or actions from within this
+## package, follow these steps:
+## * Let MSG_DEP_SET be the set of packages whose message types you use in
+##   your messages/services/actions (e.g. std_msgs, actionlib_msgs, ...).
+## * In the file package.xml:
+##   * add a build_depend and a run_depend tag for each package in MSG_DEP_SET
+##   * If MSG_DEP_SET isn't empty the following dependencies might have been
+##     pulled in transitively but can be declared for certainty nonetheless:
+##     * add a build_depend tag for "message_generation"
+##     * add a run_depend tag for "message_runtime"
+## * In this file (CMakeLists.txt):
+##   * add "message_generation" and every package in MSG_DEP_SET to
+##     find_package(catkin REQUIRED COMPONENTS ...)
+##   * add "message_runtime" and every package in MSG_DEP_SET to
+##     catkin_package(CATKIN_DEPENDS ...)
+##   * uncomment the add_*_files sections below as needed
+##     and list every .msg/.srv/.action file to be processed
+##   * uncomment the generate_messages entry below
+##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
+
+## Generate messages in the 'msg' folder
+# add_message_files(
+#   FILES
+#   Message1.msg
+#   Message2.msg
+# )
+
+## Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  CallGlobalMap.srv
+  ComputePlan.srv
+  ConfirmGoal.srv
+  ConfirmGoalStamped.srv
+  ExecutePlan.srv
+  Serialization.srv
 )
-find_library(yaml-cpp_LIBRARIES yaml-cpp PATHS
-	/usr/local/lib
-	/usr/lib
-NO_DEFAULT_PATH)
-if (yaml-cpp_INCLUDE_DIRS AND yaml-cpp_LIBRARIES)
-	include_directories(${yaml-cpp_INCLUDE_DIRS})
-	set(EXTRA_LIBS ${EXTRA_LIBS} ${yaml-cpp_LIBRARIES})
-	add_definitions(-DHAVE_YAML_CPP)
-endif (yaml-cpp_INCLUDE_DIRS AND yaml-cpp_LIBRARIES)
 
-rosbuild_add_boost_directories()
+## Generate actions in the 'action' folder
+# add_action_files(
+#   FILES
+#   Action1.action
+#   Action2.action
+# )
 
-rosbuild_add_executable(goal_interact_marker src/goalInteractMarker.cpp)
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
+  std_msgs
+)
 
-rosbuild_add_executable(ugv_nav_static src/ugv_nav_static.cpp
-	src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
-	src/DStarLite.cpp src/LocalPlanner.cpp src/trp_params.cpp src/MyTimer.cpp)
-# filesystem and system are needed from pointmatcher
-rosbuild_link_boost(ugv_nav_static filesystem system)
-# EXTRA_LIBS and nabo needed for pointmatcher
-target_link_libraries(ugv_nav_static ${EXTRA_LIBS} pointmatcher nabo)
+###################################
+## catkin specific configuration ##
+###################################
+## The catkin_package macro generates cmake config files for your package
+## Declare things to be passed to dependent projects
+## INCLUDE_DIRS: uncomment this if you package contains header files
+## LIBRARIES: libraries you create in this project that dependent projects also need
+## CATKIN_DEPENDS: catkin_packages dependent projects also need
+## DEPENDS: system dependencies of this project that dependent projects also need
+catkin_package(
+#  INCLUDE_DIRS include
+#  LIBRARIES ugv_3d_navigation
+  CATKIN_DEPENDS message_runtime actionlib geometry_msgs interactive_markers libnabo libpointmatcher libpointmatcher_ros map_msgs move_base_msgs nav_msgs pcl_ros roscpp sensor_msgs std_msgs tf visualization_msgs
+#  DEPENDS system_lib
+)
 
-#rosbuild_add_executable(trp_batch src/trp_batch.cpp
-#	src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
-#	src/DStarLite.cpp src/PathExecution.cpp src/trp_params.cpp src/MyTimer.cpp)
-#rosbuild_link_boost(trp_batch filesystem system)
-# EXTRA_LIBS and nabo needed for pointmatcher
-#target_link_libraries(trp_batch ${EXTRA_LIBS} pointmatcher nabo)
+###########
+## Build ##
+###########
 
-#rosbuild_add_executable(trpb_viz src/trpb_viz.cpp src/tensorUtils.cpp)
-# filesystem and system are needed from pointmatcher
-#rosbuild_link_boost(trpb_viz filesystem system)
-# EXTRA_LIBS and nabo needed for pointmatcher
-#target_link_libraries(trpb_viz ${EXTRA_LIBS})# pointmatcher)
+## Specify additional locations of header files
+## Your package locations should be listed before other locations
+# include_directories(include)
+include_directories(
+  ${catkin_INCLUDE_DIRS}
+)
 
-#rosbuild_add_executable(input_viz src/input_viz.cpp src/tensorUtils.cpp)
-#target_link_libraries(input_viz ${EXTRA_LIBS})
+## Declare a cpp library
+# add_library(ugv_3d_navigation
+#   src/${PROJECT_NAME}/ugv_3d_navigation.cpp
+# )
 
-rosbuild_add_executable(dist_filter_eval src/dist_filter.cpp
-		src/tensorUtils.cpp)
-target_link_libraries(dist_filter_eval ${EXTRA_LIBS})
+## Declare a cpp executable
+add_executable(goal_interact_marker src/goalInteractMarker.cpp)
+
+add_executable(ugv_nav_static src/ugv_nav_static.cpp
+  src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
+  src/DStarLite.cpp src/LocalPlanner.cpp src/trp_params.cpp src/MyTimer.cpp)
+
+#add_executable(trp_batch src/trp_batch.cpp
+#  src/TensorMap.cpp src/tensorUtils.cpp src/GenericSearch.cpp
+#  src/DStarLite.cpp src/PathExecution.cpp src/trp_params.cpp src/MyTimer.cpp)
+
+#add_executable(trpb_viz src/trpb_viz.cpp src/tensorUtils.cpp)
+
+#add_executable(input_viz src/input_viz.cpp src/tensorUtils.cpp)
+
+add_executable(dist_filter_eval src/dist_filter.cpp src/tensorUtils.cpp)
 
 
+## Add cmake target dependencies of the executable/library
+## as an example, message headers may need to be generated before nodes
+add_dependencies(goal_interact_marker ugv_3d_navigation_generate_messages_cpp)
+add_dependencies(ugv_nav_static ugv_3d_navigation_generate_messages_cpp)
+#add_dependencies(trp_batch ugv_3d_navigation_generate_messages_cpp)
+#add_dependencies(trpb_viz ugv_3d_navigation_generate_messages_cpp)
+#add_dependencies(input_viz ugv_3d_navigation_generate_messages_cpp)
+add_dependencies(dist_filter_eval ugv_3d_navigation_generate_messages_cpp)
 
-#common commands for building c++ executables and libraries
-#rosbuild_add_library(${PROJECT_NAME} src/example.cpp)
-#target_link_libraries(${PROJECT_NAME} another_library)
-#rosbuild_add_boost_directories()
-#rosbuild_link_boost(${PROJECT_NAME} thread)
-#rosbuild_add_executable(example examples/example.cpp)
-#target_link_libraries(example ${PROJECT_NAME})
+## Specify libraries to link a library or executable target against
+target_link_libraries(goal_interact_marker
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(ugv_nav_static
+  ${catkin_LIBRARIES}
+)
+#target_link_libraries(trp_batch
+#  ${catkin_LIBRARIES}
+#)
+#target_link_libraries(trpb_viz
+#  ${catkin_LIBRARIES}
+#)
+#target_link_libraries(input_viz
+#  ${catkin_LIBRARIES}
+#)
+target_link_libraries(dist_filter_eval
+  ${catkin_LIBRARIES}
+)
+
+#############
+## Install ##
+#############
+
+# all install targets should use catkin DESTINATION variables
+# See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
+
+## Mark executable scripts (Python etc.) for installation
+## in contrast to setup.py, you can choose the destination
+# install(PROGRAMS
+#   scripts/my_python_script
+#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
+
+## Mark executables and/or libraries for installation
+# install(TARGETS ugv_3d_navigation ugv_3d_navigation_node
+#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# )
+
+## Mark cpp header files for installation
+# install(DIRECTORY include/${PROJECT_NAME}/
+#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+#   FILES_MATCHING PATTERN "*.h"
+#   PATTERN ".svn" EXCLUDE
+# )
+
+## Mark other files for installation (e.g. launch and bag files, etc.)
+# install(FILES
+#   # myfile1
+#   # myfile2
+#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+# )
+
+#############
+## Testing ##
+#############
+
+## Add gtest based cpp test target and link libraries
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_ugv_3d_navigation.cpp)
+# if(TARGET ${PROJECT_NAME}-test)
+#   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
+# endif()
+
+## Add folders to be run by python nosetests
+# catkin_add_nosetests(test)
