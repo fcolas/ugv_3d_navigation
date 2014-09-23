@@ -425,9 +425,11 @@ void StaticNav::simpleGoalCB(const geometry_msgs::PoseStamped& goal) {
 
 // Get map
 bool StaticNav::callMap() {
+	// calling service
 	map_msgs::GetPointMap srvMsg;
 	getPointMapClient.call(srvMsg);
 	sensor_msgs::PointCloud2 tmp_cloud = srvMsg.response.map;
+	// transforming cloud into /map frame
 	if (srvMsg.response.map.header.frame_id!="/map") {
 		if (!tf_listener.waitForTransform(tmp_cloud.header.frame_id, "/map",
 					tmp_cloud.header.stamp, ros::Duration(2.))) {
@@ -437,9 +439,13 @@ bool StaticNav::callMap() {
 		pcl_ros::transformPointCloud("/map", tmp_cloud, tmp_cloud,
 				tf_listener);
 	}
+	// transforming into a libpointmatcher point cloud
 	input_point_cloud = PointMatcher_ros::\
 			rosMsgToPointMatcherCloud<float>(tmp_cloud);
+	// using point cloud as map
 	tensor_map.import(input_point_cloud);
+	// resetting planner
+	planner = DStarPathPlanner(tensor_map);
 	return true;
 }
 

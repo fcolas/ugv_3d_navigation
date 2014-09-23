@@ -135,6 +135,9 @@ void TensorMap::import(const PointCloud& point_cloud){
 	sparse_map = distance_filter(point_cloud);
 	distance_filter_timer.stop();
 
+	// clearing dense map
+	dense_map.clear();
+
 	/* sparse voting */
 	sparse_voting_timer.start();
 	// nearest neighbor search
